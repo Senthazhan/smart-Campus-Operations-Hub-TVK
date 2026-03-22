@@ -1,0 +1,335 @@
+SMART CAMPUS OPERATIONS HUB – ARCHITECTURE REPORT NOTES
+
+1) OVERALL SYSTEM ARCHITECTURE (DESCRIPTION FOR DIAGRAM)
+-------------------------------------------------------
+The system follows a 3-tier web architecture with external identity provider integration.
+
+- Actors:
+  - Student/Staff (USER)
+  - Admin (ADMIN)
+  - Technician (TECHNICIAN)
+
+- Presentation tier:
+  - React + Vite single-page application.
+  - Renders all UI pages (resources, bookings, tickets, notifications, admin).
+  - Uses Axios to send REST calls to the backend.
+  - Enforces client-side route guards for authenticated and role-based access.
+
+- Application tier:
+  - Spring Boot REST API exposing /api/v1/** endpoints.
+  - Modules: Resources, Bookings, Tickets, Notifications, Users/Roles, Admin Analytics.
+  - Responsibilities:
+    - Request validation (Jakarta Validation).
+    - Business rules (booking conflicts, capacity checks, ticket lifecycle rules).
+    - Role-based access control (USER, ADMIN, TECHNICIAN).
+    - Auditability (created/updated timestamps, approver fields, status transitions).
+    - Emitting notifications for key events.
+
+- Data tier:
+  - MongoDB database for flexible, schema-less document storage.
+  - Collections:
+    - users, roles
+    - resources, bookings
+    - tickets, ticket_attachments, ticket_comments
+    - notifications
+
+- File storage:
+  - Ticket image files stored on server file system under FILE_STORAGE_ROOT.
+  - Database stores only file metadata and storage path.
+
+- External service:
+  - Google OAuth2 as identity provider.
+  - Backend completes OAuth2 flow, persists/updates user records, and establishes session.
+
+Primary data flow:
+  Browser → React SPA → Axios → Spring Boot controllers → services → repositories → MongoDB (+ file storage).
+
+
+2) BACKEND ARCHITECTURE (SPRING BOOT LAYERED / MVC)
+---------------------------------------------------
+The backend is implemented as a layered Spring Boot application using DTO and MVC patterns.
+
+Layers (top to bottom):
+
+- Controller layer (com.smartcampus.controller):
+  - Defines REST endpoints under /api/v1/**.
+  - Maps HTTP methods to use-cases (e.g., GET /resources, POST /bookings, PATCH /tickets/{id}/status).
+  - Uses request DTOs for input and response DTOs for output.
+  - Returns ResponseEntity<ApiResponse<...>> with clear status codes.
+  - Contains no business logic; delegates to service layer.
+
+- DTO layer (com.smartcampus.dto.request, com.smartcampus.dto.response):
+  - Request DTOs:
+    - Carry validated user input from controllers into services.
+    - Use Jakarta Validation annotations (e.g., @NotBlank, @Min, @Max).
+  - Response DTOs:
+    - Represent what the API returns to the frontend.
+    - Hide internal entity structure and avoid exposing JPA entities directly.
+
+- Validation layer:
+  - Jakarta Validation integrated via @Valid on controller methods.
+  - Global exception handler returns structured validation error responses.
+
+- Service layer (com.smartcampus.service, com.smartcampus.service.impl):
+  - Implements business logic and workflows:
+    - Booking workflows: conflict detection, capacity rules, state transitions.
+    - Ticket workflows: state transitions, technician assignments, resolution and rejection rules.
+    - Notification creation for booking decisions and ticket events.
+    - Ownership checks (e.g., users see only their own bookings/tickets).
+    - Admin functions (user role management, analytics).
+  - Services operate in terms of DTOs and entities, orchestrating repositories and mappers.
+  - Annotated with @Service and use @Transactional where appropriate.
+
+- Mapper layer (com.smartcampus.mapper):
+  - Implemented using MapStruct.
+  - Converts between entities and DTOs:
+    - E.g., Resource ↔ ResourceResponse, Booking ↔ BookingResponse.
+  - Centralizes mapping logic to keep controllers and services concise and maintainable.
+
+- Repository layer (com.smartcampus.repository):
+  - Spring Data JPA repositories for all entities:
+    - ResourceRepository, BookingRepository, TicketRepository, TicketAttachmentRepository, TicketCommentRepository, UserRepository, RoleRepository, NotificationRepository, AnalyticsRepository.
+  - Handles all persistence operations and custom queries (e.g., overlap checks, analytics).
+
+- Specification layer (com.smartcampus.specification):
+  - Encapsulates dynamic query building using JPA Specifications:
+    - ResourceSpecifications for searching/filtering resources.
+    - BookingSpecifications for filtering bookings by status, date range, resource, and free-text search.
+  - Improves readability and reusability of complex WHERE conditions.
+
+- Security layer (com.smartcampus.security):
+  - Spring Security + OAuth2 client configuration.
+  - CustomOAuth2UserService:
+    - Integrates with Google OAuth2.
+    - Creates or updates User entity based on Google profile (email, name, avatar, provider subject).
+    - Assigns default USER role for new users.
+  - SecurityConfig:
+    - Configures HTTP security, CSRF, CORS, and path-based authorization rules.
+    - Enforces role-based access (e.g., /api/v1/admin/** only for ADMIN).
+  - AppUserPrincipal and CurrentUser helper provide access to authenticated user and role.
+
+- Exception handling layer (com.smartcampus.exception):
+  - Custom exceptions: NotFoundException, ConflictException, ForbiddenException.
+  - GlobalExceptionHandler:
+    - Translates exceptions to consistent error responses.
+    - Uses ApiResponse<ApiError> wrapper with error codes and messages.
+
+- Configuration layer (com.smartcampus.config):
+  - AppProperties and WebConfig for CORS, file storage roots, and environment-specific configuration.
+  - OpenApiConfig defines Swagger/OpenAPI metadata.
+
+Overall, the backend enforces:
+  - Clear separation of concerns.
+  - Single responsibility per layer.
+  - Strong validation, error handling, and security.
+
+
+3) FRONTEND ARCHITECTURE (MODULAR REACT)
+----------------------------------------
+The frontend is a modular React application using feature-based organization and reusable components.
+
+Key parts:
+
+- Routing (src/routes/):
+  - AppRoutes configures the main routes (dashboard, resources, bookings, tickets, notifications, admin, profile).
+  - RequireAuth component checks authentication and role (USER / ADMIN / TECHNICIAN) before rendering protected routes.
+  - AppShell provides a common layout (sidebar + topbar + content outlet) for authenticated pages.
+
+- API layer (src/api/):
+  - Centralizes all HTTP requests using a configured Axios instance.
+  - Files such as resourcesApi, bookingsApi, ticketsApi, notificationsApi, adminUsersApi, analyticsApi group endpoints by domain.
+  - Keeps pages focused on UI logic while the API layer handles network details.
+
+- State management (src/store/, src/features/):
+  - Redux Toolkit used to manage global state, particularly authentication (authSlice).
+  - authSlice:
+    - Loads current user via GET /api/v1/users/me.
+    - Stores user identity and role for route guards and role-aware UI.
+
+- Pages (src/pages/):
+  - High-level page components for each major feature:
+    - Resources: catalogue, details, admin form.
+    - Bookings: request booking, my bookings, admin booking management.
+    - Tickets: ticket creation, list, details (with attachments and comments).
+    - Notifications: notification inbox.
+    - Admin: user role management and dashboard analytics.
+    - Auth-related: profile page including logout.
+  - Pages orchestrate data fetching, state, and rendering but avoid duplicating low-level UI code.
+
+- Common components (src/components/common/ and src/components/layout/):
+  - Reusable UI elements: buttons, inputs, selects, status badges, layout shell, etc.
+  - Implemented with Tailwind CSS v4 for a modern, consistent look and feel.
+
+- Styling:
+  - Tailwind CSS v4, imported via a single @import in app.css.
+  - Custom design tokens (colors, fonts, shadows) defined via @theme for a cohesive visual identity.
+
+This architecture:
+  - Supports feature-team development (each member can focus on a feature folder).
+  - Keeps business logic in the backend while providing a responsive, user-friendly frontend.
+
+
+4) ER DIAGRAM DESCRIPTION
+-------------------------
+Main entities and relationships:
+
+- Role (id, name)
+  - One role can be referenced by many users.
+
+- User (id, email, fullName, avatarUrl, roleId, provider, providerSubject, createdAt, updatedAt)
+  - Each user belongs to exactly one Role.
+  - One user can create many bookings.
+  - One user can create many tickets.
+  - One user can receive many notifications.
+  - A user with TECHNICIAN role can be assigned many tickets as technician.
+
+- Resource (id, name, resourceCode, type, description, capacity, building, floor, roomNumber, availabilityJson, status, audit fields)
+  - One resource can have many bookings.
+  - One resource can have many tickets.
+
+- Booking (id, resourceId, userId, bookingDate, startTime, endTime, purpose, expectedAttendees, notes, status, decisionReason, decidedBy, decidedAt, createdAt, updatedAt)
+  - Many bookings refer to one resource.
+  - Many bookings refer to the user who created them.
+  - Optionally reference the admin (user) who approved/rejected the booking.
+
+- Ticket (id, ticketNumber, title, resourceId, locationText, category, priority, description, preferredContact, status, assignedTechnicianId, resolutionNotes, rejectionReason, createdBy, createdAt, updatedAt, closedAt)
+  - Many tickets can reference a resource (or none if only locationText is used).
+  - Many tickets are created by one user.
+  - Many tickets may be assigned to one technician user.
+
+- TicketAttachment (id, ticketId, originalFileName, storedFileName, contentType, sizeBytes, storagePath, uploadedBy, uploadedAt)
+  - Many attachments belong to one ticket.
+  - Many attachments may be uploaded by one user.
+
+- TicketComment (id, ticketId, authorId, body, edited, createdAt, updatedAt)
+  - Many comments belong to one ticket.
+  - Many comments can be authored by one user.
+
+- Notification (id, userId, type, title, message, entityType, entityId, isRead, createdAt, readAt)
+  - Many notifications belong to one user.
+
+The ER diagram should show these entities with primary keys and foreign keys, plus cardinalities:
+  - 1-to-many: Role→User, User→Booking, Resource→Booking, User→Ticket, Resource→Ticket, Ticket→Attachment, Ticket→Comment, User→Notification.
+  - Optional relationships for resourceId and assignedTechnicianId in Ticket.
+
+
+5) BOOKING WORKFLOW DIAGRAM DESCRIPTION
+--------------------------------------
+Booking state machine:
+
+States:
+  - PENDING
+  - APPROVED
+  - REJECTED
+  - CANCELLED
+
+Transitions:
+  1) USER creates booking:
+     - State: PENDING
+     - Validations:
+       - bookingDate, startTime, endTime must form a valid interval (start < end).
+       - expectedAttendees must be positive and not exceed resource capacity (if applicable).
+       - Conflict check: no overlapping APPROVED or PENDING bookings for the same resource/time.
+
+  2) ADMIN approves booking:
+     - Transition: PENDING → APPROVED
+     - Business rules:
+       - Re-check for conflicting APPROVED bookings before final approval.
+       - Store decisionReason, decidedBy (admin user), decidedAt (timestamp).
+     - Notification:
+       - Booking owner receives a "Booking approved" notification.
+
+  3) ADMIN rejects booking:
+     - Transition: PENDING → REJECTED
+     - Requires a clear rejection reason stored for audit.
+     - Booking owner receives a "Booking rejected" notification.
+
+  4) USER or ADMIN cancels booking:
+     - Allowed transitions:
+       - PENDING → CANCELLED
+       - APPROVED → CANCELLED
+     - Ownership rule:
+       - Regular USER may cancel only their own bookings.
+       - ADMIN may cancel any booking.
+     - Notification:
+       - Owner receives "Booking cancelled" notification.
+
+The workflow diagram should separate responsibilities:
+  - USER: creates and cancels own bookings.
+  - ADMIN: approves/rejects/cancels as necessary.
+And highlight system checks during transitions (conflict detection, validation, audit logging).
+
+
+6) TICKET LIFECYCLE WORKFLOW DIAGRAM DESCRIPTION
+-----------------------------------------------
+Ticket state machine:
+
+States:
+  - OPEN
+  - IN_PROGRESS
+  - RESOLVED
+  - CLOSED
+  - REJECTED
+
+Key transitions:
+  1) USER reports a ticket:
+     - Initial state: OPEN.
+     - Data captured: title, category, priority, description, preferredContact, optional resourceId or locationText.
+     - Optional: user uploads up to 3 images (validated by type and size).
+
+  2) ADMIN assigns technician:
+     - Technician user is set as assignedTechnicianId.
+     - Technician receives "Ticket assigned" notification.
+
+  3) TECHNICIAN or ADMIN starts work:
+     - Transition: OPEN → IN_PROGRESS.
+
+  4) TECHNICIAN resolves issue:
+     - Transition: IN_PROGRESS → RESOLVED.
+     - Resolution notes can be recorded.
+     - Ticket owner receives "Ticket status changed" notification.
+
+  5) ADMIN or authorized role closes ticket:
+     - Transition: RESOLVED → CLOSED.
+     - closedAt timestamp recorded.
+
+  6) ADMIN rejects ticket:
+     - Transition: OPEN → REJECTED.
+     - Rejection reason required and stored for audit.
+     - Ticket owner receives "Ticket rejected / status changed" notification.
+
+Comments:
+  - Throughout the lifecycle, users and staff can add comments to the ticket.
+  - Comment owners (and admin) can edit or delete their own comments.
+  - Comments create a narrative of how the issue was handled.
+
+The diagram can be drawn as a state machine with swimlanes for USER, TECHNICIAN, and ADMIN, indicating who can trigger which transitions.
+
+
+7) AUTHENTICATION AND AUTHORIZATION FLOW DESCRIPTION
+----------------------------------------------------
+Authentication (Google OAuth2):
+  1) User clicks "Sign in with Google" on the frontend.
+  2) Browser is redirected to the backend OAuth2 authorization endpoint.
+  3) The backend delegates to Google and, after successful authentication, receives user profile information.
+  4) CustomOAuth2UserService:
+     - Finds or creates a User entity based on Google email and subject.
+     - Maps Google attributes (name, email, avatar) into the local User table.
+     - Assigns default USER role for new accounts.
+  5) Spring Security establishes an authenticated session; subsequent API calls include the session cookie.
+
+Authorization (Role-Based Access Control + Ownership):
+  - Roles:
+    - USER: can view resources, manage own bookings, create own tickets, and see own notifications.
+    - ADMIN: can manage resources, bookings, tickets, users/roles, and view analytics.
+    - TECHNICIAN: can view assigned tickets and update their status and resolution notes.
+  - Backend enforcement:
+    - Method and path security (e.g., /api/v1/admin/** only for ADMIN).
+    - Ownership checks in services (e.g., a non-admin cannot view or modify another user’s bookings).
+    - Access control around ticket status changes and technician assignment.
+  - Frontend enforcement:
+    - Route guards that conditionally render admin pages based on user role.
+    - UI hiding of admin-only controls from non-admin users.
+
+This two-level approach ensures that even if the frontend is bypassed, backend business rules and role checks still prevent unauthorized access, which is critical in production-inspired systems handling university operations data.
+

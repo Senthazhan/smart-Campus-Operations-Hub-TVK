@@ -1,0 +1,149 @@
+================================================================================
+  SMART CAMPUS OPERATIONS HUB — HOW TO RUN THE PROJECT
+================================================================================
+  Stack: Java 21 + Spring Boot 3.4 | React 18 + Vite | MongoDB
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════
+  PREREQUISITES  (install before first run)
+════════════════════════════════════════════════════════════════════════════
+
+  [ ] Java 21+          → https://adoptium.net
+  [ ] Maven 3.9+        → https://maven.apache.org/download.cgi
+  [ ] Node.js 20+       → https://nodejs.org
+  [ ] MongoDB 7+        → https://www.mongodb.com/try/download/community
+  [ ] Git               → https://git-scm.com
+
+  Verify installations:
+    java -version
+    mvn -version
+    node -version
+    npm -version
+    mongod --version
+
+
+════════════════════════════════════════════════════════════════════════════
+  STEP 1 — START MONGODB
+════════════════════════════════════════════════════════════════════════════
+
+  Windows (service):
+    net start MongoDB
+
+  Windows (manual):
+    "C:\Program Files\MongoDB\Server\7.0\bin\mongod.exe" --dbpath C:\data\db
+
+  MongoDB will run on: mongodb://localhost:27017
+  Database name      : smart_campus  (auto-created on first run)
+
+
+════════════════════════════════════════════════════════════════════════════
+  STEP 2 — CONFIGURE ENVIRONMENT (backend)
+════════════════════════════════════════════════════════════════════════════
+
+  The backend reads config from environment variables OR falls back to
+  defaults defined in application.yml. For development, defaults work
+  except for Google OAuth2.
+
+  Option A — Set system environment variables (Windows):
+    setx GOOGLE_CLIENT_ID     "your-google-client-id"
+    setx GOOGLE_CLIENT_SECRET "your-google-client-secret"
+    (Restart terminal after setx)
+
+  Option B — Create backend/.env and load it before running Maven.
+
+  Optional overrides (all have working defaults):
+    MONGO_URI         = mongodb://localhost:27017/smart_campus
+    PORT              = 8080
+    JWT_SECRET        = (default 256-bit key already set)
+    JWT_EXPIRATION    = 3600000
+    FRONTEND_BASE_URL = http://localhost:5173
+
+  Get Google credentials at:
+    https://console.cloud.google.com → APIs & Services → Credentials
+    Authorized redirect URI: http://localhost:8080/login/oauth2/code/google
+
+
+════════════════════════════════════════════════════════════════════════════
+  STEP 3 — RUN THE BACKEND
+════════════════════════════════════════════════════════════════════════════
+
+  Open a terminal in the project root:
+
+    cd smart-campus-operations-hub\backend
+    mvn spring-boot:run
+
+
+════════════════════════════════════════════════════════════════════════════
+  STEP 4 — RUN THE FRONTEND
+════════════════════════════════════════════════════════════════════════════
+
+  Open a SECOND terminal in the project root:
+
+    cd smart-campus-operations-hub\frontend
+    npm install          ← only needed on first run
+    npm run dev
+
+   Frontend is ready when you see:
+    VITE ready in XXX ms
+    ➜  Local: http://localhost:5173/
+
+  Frontend URL : http://localhost:5173
+
+
+════════════════════════════════════════════════════════════════════════════
+  STEP 5 — OPEN THE APP
+════════════════════════════════════════════════════════════════════════════
+
+  Open your browser and go to:
+    http://localhost:5173
+
+  Default demo accounts (seeded automatically):
+  ┌──────────────┬───────────────────────────┬──────────────┬──────────┐
+  │ Role         │ Username / Email           │ Password     │ Access   │
+  ├──────────────┼───────────────────────────┼──────────────┼──────────┤
+  │ ADMIN        │ admin / admin@smartcampus  │ admin123     │ Full     │
+  │ USER         │ user  / user@smartcampus   │ user123      │ Portal   │
+  └──────────────┴───────────────────────────┴──────────────┴──────────┘
+
+  Google OAuth2 login is also available (requires credentials from Step 2).
+
+
+════════════════════════════════════════════════════════════════════════════
+  QUICK REFERENCE — COMMAND SUMMARY
+════════════════════════════════════════════════════════════════════════════
+
+  Terminal 1 (MongoDB):
+    net start MongoDB
+
+  Terminal 2 (Backend):
+    cd backend
+    mvn spring-boot:run
+
+  Terminal 3 (Frontend):
+    cd frontend
+    npm install && npm run dev
+
+
+════════════════════════════════════════════════════════════════════════════
+  STOP THE APPLICATION
+════════════════════════════════════════════════════════════════════════════
+
+  Backend  : Press Ctrl + C in the backend terminal
+  Frontend : Press Ctrl + C in the frontend terminal
+  MongoDB  : net stop MongoDB  (or close the mongod window)
+
+
+════════════════════════════════════════════════════════════════════════════
+  TROUBLESHOOTING
+════════════════════════════════════════════════════════════════════════════
+
+  For common startup errors and fixes, see:
+    docs\ERROR_MANAGEMENT.txt
+
+  Key checks:
+    - Port 8080 must be free (backend)
+    - Port 5173 must be free (frontend)
+    - MongoDB must be running before starting the backend
+    - Run npm install inside the frontend/ folder before npm run dev
+

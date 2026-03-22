@@ -1,0 +1,18 @@
+package com.smartcampus.enums;
+
+public enum TicketCategory {
+  EQUIPMENT_ISSUE,
+  FACILITY_DAMAGE,
+  TECHNICAL_ERROR,
+  NETWORK_ISSUE,
+  PLUMBING,
+  ELECTRICAL,
+  HVAC,
+  IT_SUPPORT,
+  CLEANING,
+  FURNITURE,
+  GENERAL,
+  OTHER
+}
+
+

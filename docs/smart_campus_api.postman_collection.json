@@ -1,0 +1,252 @@
+{
+	"info": {
+		"_postman_id": "ef8c5d6c-7f5b-4c4d-a9db-882d8c3e6022",
+		"name": "Smart Campus Operations Hub API",
+		"description": "Evidence of REST API implementation with GET, POST, PUT/PATCH, and DELETE methods. Includes authentication and robust error handling examples.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"usernameOrEmail\": \"admin\",\n    \"password\": \"password123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Resource Management (CRUD)",
+			"item": [
+				{
+					"name": "List Resources (GET)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/resources?q=Laboratory&type=LABORATORY&status=ACTIVE",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"resources"
+							],
+							"query": [
+								{
+									"key": "q",
+									"value": "Laboratory"
+								},
+								{
+									"key": "type",
+									"value": "LABORATORY"
+								},
+								{
+									"key": "status",
+									"value": "ACTIVE"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Resource (POST)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"IoT Research Lab\",\n    \"resourceCode\": \"IOT-LAB-01\",\n    \"type\": \"LABORATORY\",\n    \"description\": \"State-of-the-art IoT sensors and workstations\",\n    \"capacity\": 25,\n    \"building\": \"Engineering Block\",\n    \"floor\": \"3rd Floor\",\n    \"roomNumber\": \"305\",\n    \"availableEquipment\": [\"Sensor Array\", \"Oscilloscope\"],\n    \"status\": \"ACTIVE\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/resources",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"resources"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Resource (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"IoT Research Lab - Updated\",\n    \"resourceCode\": \"IOT-LAB-01\",\n    \"type\": \"LABORATORY\",\n    \"description\": \"Updated description with new equipment list\",\n    \"capacity\": 30,\n    \"building\": \"Engineering Block\",\n    \"floor\": \"3rd Floor\",\n    \"roomNumber\": \"305\",\n    \"availableEquipment\": [\"Sensor Array\", \"Oscilloscope\", \"Logic Analyzer\"],\n    \"status\": \"ACTIVE\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/resources/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"resources",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "resource_id_here"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Resource (DELETE)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/resources/:id",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"resources",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "resource_id_here"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Booking System (PATCH)",
+			"item": [
+				{
+					"name": "Approve Booking (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"adminComment\": \"Approved for the workshop session.\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/bookings/:id/approve",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"bookings",
+								":id",
+								"approve"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "booking_id_here"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		},
+		{
+			"key": "token",
+			"value": "jwt_token_here"
+		}
+	]
+}

@@ -1,0 +1,360 @@
+================================================================================
+  SMART CAMPUS OPERATIONS HUB — ERROR MANAGEMENT & TROUBLESHOOTING GUIDE
+================================================================================
+  Version : 2.0
+  Updated : March 2026
+  Stack   : Java 21 + Spring Boot | React 18 + Vite | MongoDB | OAuth2 (Google)
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════
+  SECTION 1 — BACKEND STARTUP ERRORS
+════════════════════════════════════════════════════════════════════════════
+
+─────────────────────────────────────────────────────
+ERROR: Port 8080 is already in use
+─────────────────────────────────────────────────────
+SYMPTOM:
+  Caused by: java.net.BindException: Address already in use: bind
+
+ROOT CAUSE:
+  Another process is occupying port 8080.
+
+FIX (Windows):
+  1. Find the process:
+       netstat -ano | findstr :8080
+  2. Kill it (replace XXXX with PID from above):
+       taskkill /PID XXXX /F
+  3. Re-run the backend:
+       mvn spring-boot:run
+
+ALTERNATIVE — change the port in application.yml:
+  server:
+    port: 9090   (or any free port)
+
+  Then update the Vite proxy in frontend/vite.config.js:
+    target: 'http://localhost:9090'
+
+─────────────────────────────────────────────────────
+ERROR: Cannot connect to MongoDB
+─────────────────────────────────────────────────────
+SYMPTOM:
+  com.mongodb.MongoTimeoutException: Timed out after 30000 ms while waiting
+  for a server ... Caused by: com.mongodb.MongoSocketOpenException
+
+ROOT CAUSE:
+  MongoDB service is not running, or the URI in application.yml is wrong.
+
+FIX:
+  1. Start MongoDB locally (Windows):
+       net start MongoDB
+       — OR —
+       "C:\Program Files\MongoDB\Server\8.0\bin\mongod.exe" --port 27017
+
+  2. Confirm the URI in application.yml (or .env):
+       MONGO_URI=mongodb://localhost:27017/smart_campus
+
+  3. If using MongoDB Atlas, ensure:
+     - The correct Atlas connection string is set in MONGO_URI.
+     - Your current IP is whitelisted in the Atlas Network Access panel.
+
+─────────────────────────────────────────────────────
+ERROR: Google OAuth2 Configuration Failure
+─────────────────────────────────────────────────────
+SYMPTOM:
+  java.lang.IllegalStateException: No clients registered
+
+  — OR —
+
+  [OAuth2 Login Error] Authorization failed: invalid_client
+
+ROOT CAUSE:
+  Missing or incorrect Google OAuth2 credentials.
+
+FIX:
+  1. Create a project at https://console.cloud.google.com
+  2. Go to APIs & Services > Credentials > Create OAuth 2.0 Client ID
+  3. Add authorized redirect URI:
+       http://localhost:8080/login/oauth2/code/google
+  4. Set the credentials in your environment (or backend/.env):
+       GOOGLE_CLIENT_ID=your-actual-client-id
+       GOOGLE_CLIENT_SECRET=your-actual-client-secret
+
+─────────────────────────────────────────────────────
+ERROR: JWT Secret Too Short / Weak Key
+─────────────────────────────────────────────────────
+SYMPTOM:
+  io.jsonwebtoken.security.WeakKeyException: ...
+
+ROOT CAUSE:
+  The JWT_SECRET is not strong enough (must be at least 256-bit / 32 chars).
+
+FIX:
+  Use a strong key in your .env or application.yml:
+    JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+
+  Default dev value is already set. Only change in production.
+
+─────────────────────────────────────────────────────
+ERROR: Compilation Failed — Missing Dependencies
+─────────────────────────────────────────────────────
+SYMPTOM:
+  BUILD FAILURE: Could not resolve dependencies
+
+FIX:
+  1. Ensure Maven is installed:   mvn --version
+  2. Force a dependency refresh:
+       mvn clean install -U
+  3. If behind a corporate proxy, configure Maven settings.xml.
+
+─────────────────────────────────────────────────────
+ERROR: Lombok / MapStruct Annotations Not Processing
+─────────────────────────────────────────────────────
+SYMPTOM:
+  Cannot find symbol: @Data / @Builder / @Mapper
+
+FIX:
+  Enable annotation processing in your IDE:
+  - IntelliJ: Settings → Build → Compiler → Annotation Processors → Enable
+  - VS Code: Use Java Extension Pack and ensure it recognises pom.xml.
+  - Terminal: mvn clean compile  (always works outside the IDE)
+
+
+════════════════════════════════════════════════════════════════════════════
+  SECTION 2 — FRONTEND STARTUP ERRORS
+════════════════════════════════════════════════════════════════════════════
+
+─────────────────────────────────────────────────────
+ERROR: Port 5173 is already in use
+─────────────────────────────────────────────────────
+SYMPTOM:
+  Error: listen EADDRINUSE: address already in use :::5173
+
+FIX (Windows):
+  1. Find the process:
+       netstat -ano | findstr :5173
+  2. Kill it:
+       taskkill /PID XXXX /F
+  3. Restart the frontend:
+       npm run dev
+
+ALTERNATIVE — run on a different port:
+  npm run dev -- --port 3000
+
+─────────────────────────────────────────────────────
+ERROR: Module Not Found / Missing node_modules
+─────────────────────────────────────────────────────
+SYMPTOM:
+  Error: Cannot find module 'react-router-dom' (or similar)
+
+FIX:
+  cd frontend
+  npm install    ← Install all dependencies first
+  npm run dev
+
+─────────────────────────────────────────────────────
+ERROR: Environment Variable Not Defined
+─────────────────────────────────────────────────────
+SYMPTOM:
+  VITE_API_BASE_URL is undefined / window.__REACT_APP_ is not defined
+
+FIX:
+  1. Copy the example env file:
+       frontend/.env.example  →  frontend/.env
+  2. Vite requires all variables to start with VITE_:
+       VITE_API_URL=http://localhost:8080/api/v1
+  3. Restart the dev server after changing .env.
+
+─────────────────────────────────────────────────────
+ERROR: Tailwind Styles Not Applying
+─────────────────────────────────────────────────────
+SYMPTOM:
+  Page renders but has NO styling.
+
+FIX:
+  1. Confirm Tailwind v4 is installed:
+       npm ls @tailwindcss/vite
+  2. Ensure app.css contains:
+       @import "tailwindcss";
+  3. Restart the dev server:   npm run dev
+  4. Hard refresh the browser: Ctrl + Shift + R
+
+
+════════════════════════════════════════════════════════════════════════════
+  SECTION 3 — API / NETWORK ERRORS (Browser / Postman)
+════════════════════════════════════════════════════════════════════════════
+
+─────────────────────────────────────────────────────
+ERROR: CORS Policy Blocked
+─────────────────────────────────────────────────────
+SYMPTOM (Browser Console):
+  Access to XMLHttpRequest at 'http://localhost:8080/api/v1/...'
+  from origin 'http://localhost:5173' has been blocked by CORS policy.
+
+ROOT CAUSE:
+  The backend CORS configuration does not include the frontend origin.
+
+FIX A — Check backend CORS config:
+  In your Spring Boot CorsConfig / SecurityConfig, ensure:
+    .allowedOrigins("http://localhost:5173")
+  or for development:
+    .allowedOrigins("*")
+
+FIX B — Use the Vite Proxy (ALREADY CONFIGURED):
+  frontend/vite.config.js already proxies:
+    /api   → http://localhost:8080
+    /oauth2 → http://localhost:8080
+
+  Always call API as '/api/v1/...' (no hostname) from frontend code.
+  This avoids CORS entirely in development.
+
+FIX C — If backend runs on a custom port (e.g. 9090):
+  Update vite.config.js:
+    target: 'http://localhost:9090'
+
+─────────────────────────────────────────────────────
+ERROR: 401 Unauthorized on API Calls
+─────────────────────────────────────────────────────
+SYMPTOM:
+  API returns 401 on every request.
+
+CAUSES & FIXES:
+  A) Not logged in:
+     → Log in first and ensure the JWT token is stored.
+
+  B) Token expired (default 1 hour):
+     → Log out and log in again. Adjust JWT_EXPIRATION in .env if needed.
+
+  C) Token not sent in header:
+     → Confirm the Axios instance in frontend/src/api/axiosInstance.js
+       sends the Authorization header:
+         headers: { Authorization: `Bearer ${token}` }
+
+─────────────────────────────────────────────────────
+ERROR: 403 Forbidden — Role-Based Access Denied
+─────────────────────────────────────────────────────
+SYMPTOM:
+  API returns 403 when calling /api/v1/resources (POST) or /api/v1/admin/*
+
+FIX:
+  The endpoint requires ADMIN or TECHNICIAN role.
+  1. Log in as an ADMIN account.
+  2. In MongoDB, verify the user's role:
+       db.users.find({ email: "your@email.com" })
+       → role field must be "ADMIN"
+  3. Promote a user via Admin panel or directly in MongoDB:
+       db.users.updateOne({ email: "..." }, { $set: { role: "ADMIN" } })
+
+─────────────────────────────────────────────────────
+ERROR: 404 Not Found
+─────────────────────────────────────────────────────
+SYMPTOM:
+  API returns 404 on all requests.
+
+CAUSES & FIXES:
+  A) Backend not running → Start with: mvn spring-boot:run
+  B) Wrong port → Check application.yml server.port (default: 8080)
+  C) Wrong URL in Axios → Base URL should be '/api/v1/' (uses proxy)
+  D) Wrong endpoint path → Check API reference in README.md
+
+─────────────────────────────────────────────────────
+ERROR: 500 Internal Server Error
+─────────────────────────────────────────────────────
+SYMPTOM:
+  API returns 500 with a JSON error body.
+
+FIX:
+  1. Check the Spring Boot console logs for the full stack trace.
+  2. Common causes:
+     - MongoDB not running (connection refused)
+     - Null pointer in service / a missing required field
+     - MapStruct mapping error (null entity passed to mapper)
+  3. Enable DEBUG logging in application.yml to get more detail:
+       logging:
+         level:
+           com.smartcampus: DEBUG
+
+─────────────────────────────────────────────────────
+ERROR: File Upload Fails (Ticket Attachments)
+─────────────────────────────────────────────────────
+SYMPTOM:
+  File upload returns 400 or 500.
+
+FIX:
+  1. Check file size: Default max is 5 MB (FILE_MAX_BYTES=5242880).
+     Increase in .env:   FILE_MAX_BYTES=10485760   (for 10 MB)
+  2. Check file type: Only image types are accepted (JPEG, PNG, WEBP).
+  3. Ensure the storage directory exists and is writable:
+       ./storage  (relative to where you run mvn spring-boot:run)
+     Change path in .env: FILE_STORAGE_ROOT=/absolute/path/to/storage
+
+
+════════════════════════════════════════════════════════════════════════════
+  SECTION 4 — GOOGLE OAUTH2 LOGIN ERRORS
+════════════════════════════════════════════════════════════════════════════
+
+─────────────────────────────────────────────────────
+ERROR: "redirect_uri_mismatch" on Google OAuth
+─────────────────────────────────────────────────────
+SYMPTOM:
+  Google shows: Error 400 — redirect_uri_mismatch
+
+FIX:
+  In Google Cloud Console > OAuth Client > Authorized Redirect URIs, add:
+    http://localhost:8080/login/oauth2/code/google
+
+  (Exact match required, no trailing slashes)
+
+─────────────────────────────────────────────────────
+ERROR: OAuth Login Loops or Redirects to /login-error
+─────────────────────────────────────────────────────
+FIX:
+  1. Clear browser cookies/session storage.
+  2. Check the backend console for the OAuth error message.
+  3. Verify FRONTEND_BASE_URL is correct in application.yml:
+       app:
+         frontend-base-url: http://localhost:5173
+
+
+════════════════════════════════════════════════════════════════════════════
+  SECTION 5 — QUICK-START CHECKLIST
+════════════════════════════════════════════════════════════════════════════
+
+Run this checklist before reporting an error:
+
+  [ ] MongoDB is running on port 27017
+  [ ] backend/.env has GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+  [ ] Backend started successfully:  mvn spring-boot:run  (port 8080)
+  [ ] No error shown in backend terminal logs
+  [ ] frontend/.env is copied from .env.example
+  [ ] npm install was run inside the frontend/ folder
+  [ ] Frontend started:  npm run dev  (port 5173)
+  [ ] Browser console has no red CORS errors
+  [ ] You are logged in before accessing protected routes
+
+
+════════════════════════════════════════════════════════════════════════════
+  SECTION 6 — ENVIRONMENT VARIABLE REFERENCE
+════════════════════════════════════════════════════════════════════════════
+
+  BACKEND (backend/.env or OS environment)
+  ─────────────────────────────────────────
+  MONGO_URI              mongodb://localhost:27017/smart_campus
+  MONGO_DB               smart_campus
+  GOOGLE_CLIENT_ID       (from Google Cloud Console)
+  GOOGLE_CLIENT_SECRET   (from Google Cloud Console)
+  JWT_SECRET             (min 32-char random string)
+  JWT_EXPIRATION         3600000   (1 hour in ms)
+  FRONTEND_BASE_URL      http://localhost:5173
+  PORT                   8080
+  FILE_STORAGE_ROOT      ./storage
+  FILE_MAX_BYTES         5242880   (5 MB)
+
+  FRONTEND (frontend/.env)
+  ─────────────────────────
+  VITE_API_URL           /api/v1   (uses Vite proxy — do not set to 8080 URL)
+
+
+================================================================================
+  END OF ERROR MANAGEMENT GUIDE
+================================================================================

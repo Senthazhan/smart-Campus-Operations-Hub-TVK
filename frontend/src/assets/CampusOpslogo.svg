@@ -1,0 +1,16 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CampusOps icon">
+  <defs>
+    <linearGradient id="g" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"></stop>
+      <stop offset="1" stop-color="#0F172A"></stop>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="16" fill="url(#g)"></rect>
+  <path d="M18 41V27.5L32 20L46 27.5V41" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+  <path d="M24 41V32H40V41" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+  <path d="M32 20V16" stroke="white" stroke-width="3" stroke-linecap="round"></path>
+  <path d="M14 27.5L32 18L50 27.5" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+  <circle cx="47" cy="18" r="7" fill="#22C55E"></circle>
+  <path d="M47 15V21" stroke="white" stroke-width="2.2" stroke-linecap="round"></path>
+  <path d="M44 18H50" stroke="white" stroke-width="2.2" stroke-linecap="round"></path>
+</svg>
