@@ -1,0 +1,237 @@
+@import "tailwindcss";
+
+@theme {
+  /* Fonts */
+  --font-sans: "Inter", "Outfit", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* 
+     Color System (HSL Based)
+     Using HSL allows for easier manipulation of lightness/opacity 
+  */
+  
+  /* Brand - High-End Sapphire Blue */
+  --color-primary: hsl(230, 85%, 60%);
+  --color-primary-hover: hsl(230, 85%, 55%);
+  --color-primary-active: hsl(230, 85%, 50%);
+  --color-primary-soft: hsl(230, 100%, 97%);
+  --color-primary-border: hsl(230, 80%, 92%);
+  --color-primary-contrast: #ffffff;
+
+  /* Neutral Scale - Modern Slate System */
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+
+  /* Light Theme Refinement (Ultra-Premium) */
+  --color-bg: #f8fafc; 
+  --color-bg-alt: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-surface-soft: #ffffff;
+  --color-border: #e2e8f0;
+  --color-divider: #f1f5f9;
+  
+  --color-text: #0f172a;
+  --color-text-secondary: #475569;
+  --color-muted: #94a3b8;
+  
+  --color-input-bg: #ffffff;
+  --color-input-border: #e2e8f0;
+  
+  --color-sidebar: #ffffff;
+  --color-navbar: hsla(210, 40%, 98%, 0.85);
+
+  /* Semantic Colors - Professional Vibrancy */
+  --color-success: hsl(158, 65%, 45%);
+  --color-warning: hsl(35, 90%, 50%);
+  --color-error: hsl(0, 75%, 60%);
+  --color-info: hsl(210, 85%, 55%);
+
+  /* Shadows - Subtle Depth & Multi-layered */
+  --shadow-soft: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.06);
+  --shadow-premium: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.08);
+  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+  --shadow-inner: inset 0 2px 4px 0 rgba(15, 23, 42, 0.04);
+}
+
+/* Dark mode overrides */
+.dark {
+  --color-bg: hsl(222, 47%, 4%);
+  --color-bg-alt: hsl(222, 47%, 7%);
+  --color-surface: hsl(222, 47%, 9%);
+  --color-surface-soft: hsl(222, 47%, 12%);
+  --color-border: hsl(217, 19%, 18%);
+  --color-divider: hsl(217, 19%, 14%);
+  
+  --color-text: hsl(210, 40%, 98%);
+  --color-text-secondary: hsl(215, 20%, 80%);
+  --color-muted: hsl(215, 15%, 70%); /* Increased from 55% for better visibility */
+  
+  --color-input-bg: hsl(222, 47%, 5%);
+  --color-input-border: hsl(217, 19%, 22%);
+  
+  --color-sidebar: hsl(222, 47%, 7%);
+  --color-navbar: hsla(222, 47%, 4%, 0.8);
+
+  --color-primary-soft: hsl(230, 40%, 15%);
+  --color-primary-border: hsl(230, 40%, 25%);
+
+  --shadow-soft: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+  --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+}
+
+/* Dark mode native element overrides for visibility */
+.dark ::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(0.9);
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.dark ::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.8;
+}
+
+/* Ensure Lucide icons using muted colors are still visible */
+.dark .lucide {
+  color: currentColor;
+}
+
+/* Base resets & global styles */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Perfect theme transitions */
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Scrollbar styling */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* Animation utilities */
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: pageFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Glassmorphism utility */
+.glass-surface {
+  @apply backdrop-blur-xl border border-white/10 shadow-glass;
+  background: hsla(0, 0%, 100%, 0.7);
+}
+.dark .glass-surface {
+  background: hsla(222, 47%, 10%, 0.7);
+  border-color: hsla(0, 0%, 100%, 0.05);
+}
+
+/* Premium Card utility */
+.card-premium {
+  @apply bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-soft transition-all duration-300;
+}
+.card-premium:hover {
+  @apply shadow-card -translate-y-1 border-[var(--color-primary-border)];
+}
+
+/* Premium Table System */
+.table-container {
+  @apply w-full overflow-x-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)];
+}
+
+.table-premium {
+  @apply w-full text-left border-collapse;
+}
+
+.table-premium thead th {
+  @apply px-6 py-4 bg-[var(--color-bg-alt)] text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)] border-b border-[var(--color-border)];
+}
+
+.table-premium tbody tr {
+  @apply transition-colors duration-200 border-b border-[var(--color-divider)];
+}
+
+.table-premium tbody tr:last-child {
+  @apply border-0;
+}
+
+.table-premium tbody tr:hover {
+  @apply bg-[var(--color-surface-soft)];
+}
+
+.table-premium tbody td {
+  @apply px-6 py-4 text-sm font-medium text-[var(--color-text)];
+}
+
+/* Modern Input/Select focus effect */
+.input-premium {
+  @apply w-full px-4 py-3 bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-xl text-[var(--color-text)] transition-all duration-200 leading-normal;
+  @apply focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary placeholder:text-[var(--color-muted)];
+}
+
+/* Fix for native option tags in Dark Mode */
+option {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Button variants */
+.btn-premium {
+  @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+}
+
+.btn-premium-primary {
+  @apply bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary-hover hover:shadow-xl hover:shadow-primary/30;
+}
+
+.btn-premium-secondary {
+  @apply bg-[var(--color-surface-soft)] border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-bg-alt)] hover:border-[var(--color-primary-border)];
+}
+
+/* Typography Overrides */
+.text-label-premium {
+  @apply text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-widest;
+}
+
+.text-value-premium {
+  @apply text-sm font-extrabold text-[var(--color-text)];
+}
+
+/* Compact Input utility */
+.compact .input-premium {
+  @apply py-2.5 text-sm;
+}
+.compact label {
+  @apply mb-1;
+}

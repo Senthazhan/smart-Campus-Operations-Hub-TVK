@@ -1,0 +1,209 @@
+# ─────────────────────────────────────────────
+#  SMART CAMPUS OPERATIONS HUB — .gitignore
+#  Covers: Java/Spring Boot + React/Vite + MongoDB + OS/IDE
+# ─────────────────────────────────────────────
+
+
+# ══════════════════════════════════════════════
+#  SECRETS & ENVIRONMENT FILES  ← NEVER commit
+# ══════════════════════════════════════════════
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+*.env
+
+# Keep example templates tracked
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+
+# ══════════════════════════════════════════════
+#  JAVA / MAVEN (Backend)
+# ══════════════════════════════════════════════
+# Compiled class files
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+# Maven build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# Maven wrapper (keep the wrapper, ignore downloaded binary)
+!.mvn/wrapper/maven-wrapper.properties
+.mvn/wrapper/MavenWrapperDownloader.java
+
+# Eclipse / STS project files
+.classpath
+.project
+.settings/
+eclipse/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+*.idea
+
+# VS Code Java
+.vscode/settings.json
+
+# Log files
+*.log
+logs/
+
+# Generated sources (MapStruct, Lombok, etc.)
+**/generated-sources/
+**/generated-test-sources/
+
+# Spring Boot DevTools restart file
+.spring-boot-devtools.properties
+
+# JVM Profiling / heap dumps
+*.hprof
+
+
+# ══════════════════════════════════════════════
+#  NODE / REACT / VITE (Frontend)
+# ══════════════════════════════════════════════
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Build output
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# Vite cache
+.vite/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# ESLint / Prettier cache
+.eslintcache
+.prettiercache
+
+# Storybook
+storybook-static/
+
+
+# ══════════════════════════════════════════════
+#  FILE STORAGE (Uploaded attachments)
+# ══════════════════════════════════════════════
+# Ticket image uploads — stored locally, not in git
+storage/
+backend/storage/
+uploads/
+
+# Keep the storage directory with a placeholder
+!storage/.gitkeep
+
+
+# ══════════════════════════════════════════════
+#  OPERATING SYSTEM FILES
+# ══════════════════════════════════════════════
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptcatalog
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+
+# ══════════════════════════════════════════════
+#  EDITORS & IDEs
+# ══════════════════════════════════════════════
+# VS Code (keep shared settings, ignore personal)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# JetBrains (IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+
+
+# ══════════════════════════════════════════════
+#  TESTING & REPORTS
+# ══════════════════════════════════════════════
+# JUnit / Surefire test reports
+backend/target/surefire-reports/
+
+# Spring Boot test output
+backend/target/failsafe-reports/
+
+# Jacoco coverage
+jacoco.exec
+*.exec
+
+
+# ══════════════════════════════════════════════
+#  BUILD ARTIFACTS & TEMPORARY FILES
+# ══════════════════════════════════════════════
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.patch
+
+# Compiled frontend bundles already in dist/
+*.min.js.map
+*.min.css.map
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# ══════════════════════════════════════════════
+#  POSTMAN / API DOCS (Optional — comment out
+#  if you WANT to commit the Postman collection)
+# ══════════════════════════════════════════════
+# docs/*.postman_collection.json
+
+
+# ══════════════════════════════════════════════
+#  MISC PROJECT-SPECIFIC
+# ══════════════════════════════════════════════
+# Compile error log generated during dev
+backend_compile_error.txt
+build.log
+test-profile.js
