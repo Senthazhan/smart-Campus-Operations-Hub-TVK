@@ -182,12 +182,12 @@ export function ResourceDetailsPage() {
                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-muted)]">Node Availability</h4>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                        <div key={day} className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-[var(--color-border)] text-center shadow-soft">
-                           <div className="text-[10px] font-black uppercase text-[var(--color-muted)] mb-1">{day}</div>
-                           <div className="text-[11px] font-bold text-success uppercase tracking-tighter">Online</div>
+                     <div className="col-span-2 sm:col-span-4 md:col-span-7 p-4 bg-white dark:bg-slate-800 rounded-xl border border-[var(--color-border)] text-center shadow-soft">
+                        <div className="text-[10px] font-black uppercase text-[var(--color-muted)] mb-1">Availability Window</div>
+                        <div className="text-sm font-bold text-success uppercase tracking-tighter">
+                          {data.availableFrom && data.availableTo ? `${data.availableFrom} - ${data.availableTo}` : "Not Set"}
                         </div>
-                     ))}
+                     </div>
                   </div>
                </div>
             </Card>

@@ -16,6 +16,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -42,14 +43,14 @@ public class ResourceControllerIT {
         // Arrange
         ResourceCreateRequest request = new ResourceCreateRequest(
                 "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", 200,
-                "Admin Building", "Ground Floor", "G01", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE
+                "Admin Building", "Ground Floor", "G01", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         ResourceResponse response = new ResourceResponse(
                 "res-1", "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", 200,
-                "Admin Building", "Ground Floor", "G01", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE, null, null, "admin", "admin"
+                "Admin Building", "Ground Floor", "G01", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE, null, null, "admin", "admin"
         );
 
         when(resourceService.create(any(ResourceCreateRequest.class))).thenReturn(response);
@@ -70,8 +71,8 @@ public class ResourceControllerIT {
         // Arrange
         ResourceCreateRequest request = new ResourceCreateRequest(
                 "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", 200,
-                "Admin Building", "Ground Floor", "G01", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE
+                "Admin Building", "Ground Floor", "G01", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         // Act & Assert
@@ -103,8 +104,8 @@ public class ResourceControllerIT {
         // Arrange
         ResourceResponse response = new ResourceResponse(
                 "res-1", "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", 200,
-                "Admin Building", "Ground Floor", "G01", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE, null, null, "admin", "admin"
+                "Admin Building", "Ground Floor", "G01", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE, null, null, "admin", "admin"
         );
 
         when(resourceService.getById("res-1")).thenReturn(response);

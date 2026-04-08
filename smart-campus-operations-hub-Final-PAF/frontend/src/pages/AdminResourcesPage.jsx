@@ -41,6 +41,8 @@ export function AdminResourcesPage() {
     building: "",
     floor: "",
     roomNumber: "",
+    availableFrom: "08:00",
+    availableTo: "17:00",
     capacity: 0,
     status: "ACTIVE",
     availableEquipment: "",
@@ -76,6 +78,8 @@ export function AdminResourcesPage() {
         building: resource.building || "",
         floor: resource.floor || "",
         roomNumber: resource.roomNumber || "",
+        availableFrom: resource.availableFrom || "08:00",
+        availableTo: resource.availableTo || "17:00",
         capacity: resource.capacity,
         status: resource.status,
         availableEquipment: resource.availableEquipment ? resource.availableEquipment.join(", ") : "",
@@ -91,6 +95,8 @@ export function AdminResourcesPage() {
         building: "",
         floor: "",
         roomNumber: "",
+        availableFrom: "08:00",
+        availableTo: "17:00",
         capacity: 0,
         status: "ACTIVE",
         availableEquipment: "",
@@ -245,6 +251,9 @@ export function AdminResourcesPage() {
                           <Users className="w-3.5 h-3.5" />
                           Cap. {r.capacity}
                         </div>
+                        <div className="text-xs font-bold text-[var(--color-text-secondary)]">
+                          {r.availableFrom && r.availableTo ? `${r.availableFrom} - ${r.availableTo}` : "N/A"}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -364,6 +373,22 @@ export function AdminResourcesPage() {
                   containerClassName="col-span-4" 
                   value={formData.roomNumber} 
                   onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value })} 
+                />
+                <Input
+                  label="Available From"
+                  type="time"
+                  required
+                  containerClassName="col-span-6"
+                  value={formData.availableFrom}
+                  onChange={(e) => setFormData({ ...formData, availableFrom: e.target.value })}
+                />
+                <Input
+                  label="Available To"
+                  type="time"
+                  required
+                  containerClassName="col-span-6"
+                  value={formData.availableTo}
+                  onChange={(e) => setFormData({ ...formData, availableTo: e.target.value })}
                 />
 
                 <Select 

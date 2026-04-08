@@ -25,6 +25,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -64,8 +65,8 @@ public class ResourceServiceTest {
         // Arrange
         ResourceCreateRequest request = new ResourceCreateRequest(
                 "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", 30,
-                "Science Block", "1st Floor", "101", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE
+                "Science Block", "1st Floor", "101", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         Resource entity = new Resource();
@@ -73,8 +74,8 @@ public class ResourceServiceTest {
 
         ResourceResponse response = new ResourceResponse(
                 "id-123", "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", 30,
-                "Science Block", "1st Floor", "101", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE, null, null, "user-1", "user-1"
+                "Science Block", "1st Floor", "101", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE, null, null, "user-1", "user-1"
         );
 
         when(resourceRepository.findByResourceCode("LAB-001")).thenReturn(Optional.empty());
@@ -98,8 +99,8 @@ public class ResourceServiceTest {
         // Arrange
         ResourceCreateRequest request = new ResourceCreateRequest(
                 "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", 30,
-                "Science Block", "1st Floor", "101", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE
+                "Science Block", "1st Floor", "101", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         when(resourceRepository.findByResourceCode("LAB-001")).thenReturn(Optional.of(new Resource()));
@@ -129,8 +130,8 @@ public class ResourceServiceTest {
         String id = "id-123";
         ResourceUpdateRequest request = new ResourceUpdateRequest(
                 "Updated Lab", "LAB-001", ResourceType.LAB, "Updated Desc", 40,
-                "Science Block", "2nd Floor", "202", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE
+                "Science Block", "2nd Floor", "202", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         Resource existingEntity = new Resource();
@@ -139,8 +140,8 @@ public class ResourceServiceTest {
 
         ResourceResponse response = new ResourceResponse(
                 id, "Updated Lab", "LAB-001", ResourceType.LAB, "Updated Desc", 40,
-                "Science Block", "2nd Floor", "202", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE, null, null, "user-1", "user-1"
+                "Science Block", "2nd Floor", "202", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE, null, null, "user-1", "user-1"
         );
 
         when(resourceRepository.findById(id)).thenReturn(Optional.of(existingEntity));

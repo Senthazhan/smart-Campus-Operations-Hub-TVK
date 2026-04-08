@@ -46,6 +46,8 @@ export function ResourceAdminFormPage({ mode }) {
     floor: '',
     roomNumber: '',
     availabilityJson: '',
+    availableFrom: '08:00',
+    availableTo: '17:00',
     status: 'ACTIVE',
   });
 
@@ -67,6 +69,8 @@ export function ResourceAdminFormPage({ mode }) {
           floor: r.floor || '',
           roomNumber: r.roomNumber || '',
           availabilityJson: r.availabilityJson || '',
+          availableFrom: r.availableFrom || '08:00',
+          availableTo: r.availableTo || '17:00',
           status: r.status || 'ACTIVE',
         });
       })
@@ -266,6 +270,25 @@ export function ResourceAdminFormPage({ mode }) {
                          <h3 className="text-sm font-black uppercase tracking-widest text-[var(--color-text)]">Availability Matrix</h3>
                          <p className="text-xs font-medium text-[var(--color-muted)] mt-0.5">Define JSON structured temporal constraints for booking.</p>
                       </div>
+                   </div>
+
+                   <div className="grid md:grid-cols-2 gap-6">
+                      <Input
+                        label="Available From"
+                        type="time"
+                        value={form.availableFrom}
+                        onChange={(e) => setForm((f) => ({ ...f, availableFrom: e.target.value }))}
+                        required
+                        className="h-12 font-bold"
+                      />
+                      <Input
+                        label="Available To"
+                        type="time"
+                        value={form.availableTo}
+                        onChange={(e) => setForm((f) => ({ ...f, availableTo: e.target.value }))}
+                        required
+                        className="h-12 font-bold"
+                      />
                    </div>
 
                    <div className="space-y-3">
