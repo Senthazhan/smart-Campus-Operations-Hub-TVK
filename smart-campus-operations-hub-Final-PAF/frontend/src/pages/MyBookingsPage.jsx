@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { listBookings, cancelBooking } from '../api/bookingsApi';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmModal } from '../components/common/ConfirmModal';
+import { Select } from '../components/common/Select';
 import {
   Calendar,
   CalendarCheck,
@@ -28,22 +29,51 @@ const STATUS_VARIANTS = {
   COMPLETED: 'info',
 };
 
+function compareBookings(a, b, chronology) {
+  const direction = chronology === 'oldest' ? 1 : -1;
+  const dateCompare = String(a.bookingDate || '').localeCompare(String(b.bookingDate || ''));
+  if (dateCompare !== 0) return dateCompare * direction;
+
+  const timeCompare = String(a.startTime || '').localeCompare(String(b.startTime || ''));
+  if (timeCompare !== 0) return timeCompare * direction;
+
+  return String(a.id || '').localeCompare(String(b.id || '')) * direction;
+}
+
+function sortBookingContent(content, chronology) {
+  return [...(content || [])].sort((a, b) => compareBookings(a, b, chronology));
+}
+
 export function MyBookingsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
+  const [chronology, setChronology] = useState('latest');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [cancelModal, setCancelModal] = useState({ open: false, id: null });
+  const bookingsCacheRef = useRef(new Map());
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     setError(null);
-    listBookings({ page, size: 7 })
+    const cacheKey = `${chronology}:${page}`;
+    const cachedPage = bookingsCacheRef.current.get(cacheKey);
+
+    if (cachedPage) {
+      setData(cachedPage);
+      setLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
+
+    setLoading(true);
+    listBookings({ page, size: 7, chronology })
       .then((d) => {
         if (!alive) return;
+        bookingsCacheRef.current.set(cacheKey, d);
         setData(d);
       })
       .catch((e) => {
@@ -55,7 +85,7 @@ export function MyBookingsPage() {
         setLoading(false);
       });
     return () => { alive = false; };
-  }, [page]);
+  }, [page, chronology]);
 
   async function handleCancelConfirm() {
     const id = cancelModal.id;
@@ -66,7 +96,9 @@ export function MyBookingsPage() {
     setError(null);
     try {
       await cancelBooking(id);
-      const d = await listBookings({ page, size: 10 });
+      bookingsCacheRef.current.clear();
+      const d = await listBookings({ page, size: 7, chronology });
+      bookingsCacheRef.current.set(`${chronology}:${page}`, d);
       setData(d);
     } catch (e) {
       setError(e?.response?.data?.error?.message || 'Failed to cancel booking');
@@ -78,8 +110,8 @@ export function MyBookingsPage() {
   return (
     <div className="space-y-8 animate-fade-in-up">
       {/* SaaS Pipeline Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div>
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6">
+        <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
              <CalendarCheck className="w-4 h-4 text-primary" />
              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--color-muted)]">Reservation Pipeline</span>
@@ -87,12 +119,44 @@ export function MyBookingsPage() {
           <h2 className="text-3xl font-black tracking-tight text-[var(--color-text)]">My Bookings</h2>
           <p className="text-[var(--color-muted)] font-medium mt-1">Full audit trail and lifecycle management of your campus resource access.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={() => window.location.reload()} className="gap-2">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-3 xl:flex-shrink-0">
+          <div className="w-full lg:w-60">
+            <Select
+              label="Sort Order"
+              value={chronology}
+              onChange={(e) => {
+                const nextChronology = e.target.value;
+                setChronology(nextChronology);
+                setPage(0);
+                setData((current) => {
+                  if (!current?.content?.length) return current;
+                  return {
+                    ...current,
+                    number: 0,
+                    first: true,
+                    last: current.totalPages ? current.totalPages <= 1 : current.last,
+                    content: sortBookingContent(current.content, nextChronology),
+                  };
+                });
+              }}
+              options={[
+                { value: 'latest', label: 'Latest to Oldest' },
+                { value: 'oldest', label: 'Oldest to Latest' },
+              ]}
+            />
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => window.location.reload()}
+            className="gap-2 h-12 px-5 whitespace-nowrap"
+          >
             <History className="w-4 h-4" />
             Refresh Log
           </Button>
-          <Button onClick={() => navigate('/bookings/new')} className="gap-2 shadow-premium">
+          <Button
+            onClick={() => navigate('/bookings/new')}
+            className="gap-2 shadow-premium h-12 px-6 whitespace-nowrap"
+          >
             <Calendar className="w-4 h-4" />
             New Reservation
           </Button>
