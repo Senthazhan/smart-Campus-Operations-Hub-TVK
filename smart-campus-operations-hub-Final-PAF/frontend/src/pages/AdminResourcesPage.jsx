@@ -38,6 +38,7 @@ export function AdminResourcesPage() {
     resourceCode: "",
     type: "MEETING_ROOM",
     description: "",
+    imageUrl: "",
     building: "",
     floor: "",
     roomNumber: "",
@@ -75,6 +76,7 @@ export function AdminResourcesPage() {
         resourceCode: resource.resourceCode || "",
         type: resource.type,
         description: resource.description,
+        imageUrl: resource.imageUrl || "",
         building: resource.building || "",
         floor: resource.floor || "",
         roomNumber: resource.roomNumber || "",
@@ -92,6 +94,7 @@ export function AdminResourcesPage() {
         resourceCode: "",
         type: "MEETING_ROOM",
         description: "",
+        imageUrl: "",
         building: "",
         floor: "",
         roomNumber: "",
@@ -416,6 +419,13 @@ export function AdminResourcesPage() {
                   containerClassName="col-span-12"
                   value={formData.availableEquipment} 
                   onChange={(e) => setFormData({ ...formData, availableEquipment: e.target.value })} 
+                />
+                <Input
+                  label="Image URL"
+                  placeholder="https://example.com/resource-image.jpg"
+                  containerClassName="col-span-12"
+                  value={formData.imageUrl}
+                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
                 />
               </div>
               <div className="flex gap-2 pt-3 border-t border-[var(--color-divider)]">

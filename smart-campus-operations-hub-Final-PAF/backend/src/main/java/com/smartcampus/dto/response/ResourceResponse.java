@@ -13,6 +13,7 @@ public record ResourceResponse(
     String resourceCode,
     ResourceType type,
     String description,
+    String imageUrl,
     int capacity,
     String building,
     String floor,

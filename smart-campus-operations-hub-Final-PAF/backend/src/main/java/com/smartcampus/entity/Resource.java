@@ -28,6 +28,8 @@ public class Resource {
 
   private String description;
 
+  private String imageUrl;
+
   private int capacity;
 
   private String building;

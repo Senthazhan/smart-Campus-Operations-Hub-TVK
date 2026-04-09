@@ -41,6 +41,7 @@ export function ResourceAdminFormPage({ mode }) {
     resourceCode: '',
     type: 'LECTURE_HALL',
     description: '',
+    imageUrl: '',
     capacity: 0,
     building: '',
     floor: '',
@@ -64,6 +65,7 @@ export function ResourceAdminFormPage({ mode }) {
           resourceCode: r.resourceCode || '',
           type: r.type || 'LECTURE_HALL',
           description: r.description || '',
+          imageUrl: r.imageUrl || '',
           capacity: r.capacity ?? 0,
           building: r.building || '',
           floor: r.floor || '',
@@ -219,6 +221,15 @@ export function ResourceAdminFormPage({ mode }) {
                            placeholder="Describe technical specifications, included equipment, or special usage instructions..."
                          />
                       </div>
+
+                      <Input
+                        label="Image URL"
+                        value={form.imageUrl}
+                        onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
+                        placeholder="https://example.com/resource-image.jpg"
+                        hint="Optional public image URL for this resource"
+                        className="h-12 font-bold"
+                      />
                    </div>
                 </Card>
 
