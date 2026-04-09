@@ -43,10 +43,12 @@ public class BookingController {
       @RequestParam(required = false) String resourceId,
       @RequestParam(required = false) LocalDate from,
       @RequestParam(required = false) LocalDate to,
+      @RequestParam(required = false, defaultValue = "latest") String chronology,
       @PageableDefault(size = 10) Pageable pageable,
       HttpServletRequest req
   ) {
-    return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI(), bookingService.list(q, status, resourceId, from, to, pageable)));
+    return ResponseEntity.ok(
+        ApiResponse.ok(req.getRequestURI(), bookingService.list(q, status, resourceId, from, to, chronology, pageable)));
   }
 
   @GetMapping("/{id}")
