@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface ResourceService {
   Page<ResourceResponse> search(
@@ -29,6 +30,8 @@ public interface ResourceService {
   ResourceResponse create(ResourceCreateRequest req);
 
   ResourceResponse update(String id, ResourceUpdateRequest req);
+
+  ResourceResponse uploadImage(String id, MultipartFile file);
 
   void delete(String id);
 }

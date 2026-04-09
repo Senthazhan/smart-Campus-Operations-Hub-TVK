@@ -24,4 +24,13 @@ export async function deleteResource(id) {
   await http.delete(`/resources/${id}`);
 }
 
+export async function uploadResourceImage(id, file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await http.post(`/resources/${id}/image`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data?.data;
+}
+
 

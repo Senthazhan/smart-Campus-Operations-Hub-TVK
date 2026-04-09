@@ -99,6 +99,42 @@ public class FileStorageService {
     }
   }
 
+  public StoredFile storeResourceImage(String resourceId, MultipartFile file) {
+    if (file == null || file.isEmpty()) {
+      throw new ConflictException("Empty file upload");
+    }
+    if (file.getSize() > appProperties.fileMaxBytes()) {
+      throw new ConflictException("File too large");
+    }
+    String contentType = file.getContentType();
+    if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+      throw new ConflictException("Unsupported file type");
+    }
+
+    String ext = switch (contentType) {
+      case "image/jpeg" -> ".jpg";
+      case "image/png" -> ".png";
+      case "image/webp" -> ".webp";
+      default -> "";
+    };
+
+    String storedName = "resource" + ext;
+    Path root = Path.of(appProperties.fileStorageRoot()).toAbsolutePath().normalize();
+    Path resourceDir = root.resolve("resources").resolve(resourceId).normalize();
+    if (!resourceDir.startsWith(root)) {
+      throw new ConflictException("Invalid storage path");
+    }
+
+    try {
+      Files.createDirectories(resourceDir);
+      Path target = resourceDir.resolve(storedName).normalize();
+      Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+      return new StoredFile(file.getOriginalFilename(), storedName, contentType, file.getSize(), target.toString());
+    } catch (IOException e) {
+      throw new ConflictException("Failed to store resource image");
+    }
+  }
+
   public record StoredFile(
       String originalFileName,
       String storedFileName,

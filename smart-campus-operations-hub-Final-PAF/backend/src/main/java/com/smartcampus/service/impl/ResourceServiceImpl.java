@@ -13,9 +13,9 @@ import com.smartcampus.mapper.ResourceMapper;
 import com.smartcampus.repository.BookingRepository;
 import com.smartcampus.repository.ResourceRepository;
 import com.smartcampus.security.CurrentUser;
+import com.smartcampus.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +36,7 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
   private final ResourceMapper resourceMapper;
   private final MongoTemplate mongoTemplate;
   private final BookingRepository bookingRepository;
+  private final FileStorageService fileStorageService;
 
   @Override
   public Page<ResourceResponse> search(
@@ -50,12 +51,6 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
       String excludeBookingId,
       Pageable pageable
   ) {
-    Authentication auth = CurrentUser.requireAuth();
-    boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-    if (!isAdmin) {
-      status = ResourceStatus.ACTIVE;
-    }
-
     boolean hasAvailabilityWindow = bookingDate != null && startTime != null && endTime != null;
     Query query = new Query();
     if (!hasAvailabilityWindow) {
@@ -122,13 +117,7 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
 
   @Override
   public ResourceResponse getById(String id) {
-    Authentication auth = CurrentUser.requireAuth();
-    boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-
     var resource = resourceRepository.findById(id).orElseThrow(() -> new NotFoundException("Resource not found"));
-    if (!isAdmin && resource.getStatus() != ResourceStatus.ACTIVE) {
-      throw new NotFoundException("Resource not found");
-    }
     return resourceMapper.toResponse(resource);
   }
 
@@ -153,6 +142,17 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
         .ifPresent(other -> { throw new ConflictException("Resource code already exists"); });
 
     resourceMapper.updateEntity(req, entity);
+    entity.setUpdatedBy(CurrentUser.id());
+    entity = resourceRepository.save(entity);
+    return resourceMapper.toResponse(entity);
+  }
+
+  @Override
+  public ResourceResponse uploadImage(String id, org.springframework.web.multipart.MultipartFile file) {
+    var entity = resourceRepository.findById(id).orElseThrow(() -> new NotFoundException("Resource not found"));
+    var storedFile = fileStorageService.storeResourceImage(entity.getId(), file);
+    String imageUrl = "/api/v1/files/resources/" + entity.getId() + "/" + storedFile.storedFileName();
+    entity.setImageUrl(imageUrl);
     entity.setUpdatedBy(CurrentUser.id());
     entity = resourceRepository.save(entity);
     return resourceMapper.toResponse(entity);
