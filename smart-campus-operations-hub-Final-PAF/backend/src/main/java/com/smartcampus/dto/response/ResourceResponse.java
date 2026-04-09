@@ -4,6 +4,7 @@ import com.smartcampus.enums.ResourceStatus;
 import com.smartcampus.enums.ResourceType;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 public record ResourceResponse(
@@ -17,6 +18,8 @@ public record ResourceResponse(
     String floor,
     String roomNumber,
     String availabilityJson,
+    LocalTime availableFrom,
+    LocalTime availableTo,
     List<String> availableEquipment,
     LocalDate lastMaintenanceDate,
     ResourceStatus status,

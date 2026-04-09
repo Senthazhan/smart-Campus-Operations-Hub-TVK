@@ -262,6 +262,9 @@ export function ResourceCataloguePage() {
                               <span className="text-[11px] font-black text-[var(--color-text)] truncate">{r.building}</span>
                            </div>
                         </div>
+                        <div className="mb-4 text-[10px] font-black text-[var(--color-muted)] uppercase tracking-widest">
+                          Availability: {r.availableFrom && r.availableTo ? `${r.availableFrom} - ${r.availableTo}` : "Not Set"}
+                        </div>
 
                         <div className="mt-auto pt-5 border-t border-[var(--color-divider)] flex items-center justify-between">
                             <span className="text-[9px] font-black text-[var(--color-muted)] uppercase tracking-widest">Modified: 2h ago</span>
@@ -309,6 +312,9 @@ export function ResourceCataloguePage() {
                     <td className="px-6 py-5">
                        <div className="text-[12px] font-black text-[var(--color-text)] tracking-tight">{r.building}</div>
                        <div className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-widest mt-0.5">Floor Level {r.floor}</div>
+                       <div className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-widest mt-0.5">
+                         {r.availableFrom && r.availableTo ? `${r.availableFrom} - ${r.availableTo}` : "Availability Not Set"}
+                       </div>
                     </td>
                     <td className="px-6 py-5">
                        <div className="flex items-center justify-end gap-3">

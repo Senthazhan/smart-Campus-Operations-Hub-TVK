@@ -76,6 +76,24 @@ export function ResourceDetailsPage() {
 
   const Icon = data ? (TYPE_ICONS[data.type] || Box) : Box;
 
+  const next7Days = React.useMemo(() => {
+    const base = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      const day = d.toLocaleDateString(undefined, { weekday: 'short' });
+
+      const status = data?.status;
+      let state = 'ONLINE';
+      if (status === 'OUT_OF_SERVICE') state = 'UNAVAILABLE';
+      else if (status === 'UNDER_MAINTENANCE' || status === 'MAINTENANCE') state = i === 0 ? 'UNAVAILABLE' : 'ONLINE';
+      else if (status === 'ACTIVE') state = 'ONLINE';
+      else state = 'ONLINE';
+
+      return { day, state, isToday: i === 0 };
+    });
+  }, [data?.status]);
+
   return (
     <div className="space-y-8 animate-fade-in-up pb-20">
       {/* Navigation & Actions */}
@@ -182,12 +200,22 @@ export function ResourceDetailsPage() {
                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-muted)]">Node Availability</h4>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                        <div key={day} className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-[var(--color-border)] text-center shadow-soft">
-                           <div className="text-[10px] font-black uppercase text-[var(--color-muted)] mb-1">{day}</div>
-                           <div className="text-[11px] font-bold text-success uppercase tracking-tighter">Online</div>
-                        </div>
-                     ))}
+                     {next7Days.map(({ day, state, isToday }) => {
+                       const isOnline = state === 'ONLINE';
+                       return (
+                         <div
+                           key={`${day}-${isToday ? 'today' : ''}`}
+                           className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-[var(--color-border)] text-center shadow-soft"
+                         >
+                           <div className="text-[10px] font-black uppercase text-[var(--color-muted)] mb-1">
+                             {day}{isToday ? ' (Today)' : ''}
+                           </div>
+                           <div className={`text-[11px] font-bold uppercase tracking-tighter ${isOnline ? 'text-success' : 'text-error'}`}>
+                             {isOnline ? 'Online' : 'U.A'}
+                           </div>
+                         </div>
+                       );
+                     })}
                   </div>
                </div>
             </Card>
