@@ -113,6 +113,14 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/bookings/:id/edit"
+          element={
+            <RequireAuth>
+              <BookingRequestPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/my-bookings"
           element={
             <RequireAuth>

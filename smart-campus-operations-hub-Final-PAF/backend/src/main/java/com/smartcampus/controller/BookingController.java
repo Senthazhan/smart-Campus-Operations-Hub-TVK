@@ -31,6 +31,11 @@ public class BookingController {
     return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(req.getRequestURI(), created));
   }
 
+  @PutMapping("/{id}")
+  public ResponseEntity<ApiResponse<BookingResponse>> update(@PathVariable String id, @Valid @RequestBody BookingCreateRequest body, HttpServletRequest req) {
+    return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI(), bookingService.update(id, body)));
+  }
+
   @GetMapping
   public ResponseEntity<ApiResponse<Page<BookingResponse>>> list(
       @RequestParam(required = false) String q,

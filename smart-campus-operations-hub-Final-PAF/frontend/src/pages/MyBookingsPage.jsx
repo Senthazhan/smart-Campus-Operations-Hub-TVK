@@ -11,6 +11,7 @@ import {
   Clock,
   Users,
   Info,
+  Pencil,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -175,6 +176,17 @@ export function MyBookingsPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
+                           {b.status === 'PENDING' && (
+                             <Button
+                               variant="soft"
+                               size="sm"
+                               className="h-8 text-[10px] font-black uppercase tracking-widest"
+                               onClick={() => navigate(`/bookings/${b.id}/edit`)}
+                             >
+                               <Pencil className="w-3.5 h-3.5" />
+                               Edit
+                             </Button>
+                           )}
                            <Button 
                               variant="ghost" 
                               size="sm" 

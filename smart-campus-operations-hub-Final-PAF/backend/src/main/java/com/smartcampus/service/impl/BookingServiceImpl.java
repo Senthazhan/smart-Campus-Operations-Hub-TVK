@@ -48,28 +48,12 @@ public class BookingServiceImpl implements BookingService {
 
   @Override
   public BookingResponse create(BookingCreateRequest req) {
-    if (!req.startTime().isBefore(req.endTime())) {
-      throw new ConflictException("Start time must be before end time");
-    }
+    validateBookingRequest(req);
 
     var resource = resourceRepository.findById(req.resourceId())
         .orElseThrow(() -> new NotFoundException("Resource not found"));
-    if (resource.getStatus() != ResourceStatus.ACTIVE) {
-      throw new ConflictException("Resource is not available for booking");
-    }
-    if (resource.getCapacity() > 0 && req.expectedAttendees() > resource.getCapacity()) {
-      throw new ConflictException("Expected attendees exceed resource capacity");
-    }
-
-    long conflicts = bookingRepository.countConflicts(
-        resource.getId(),
-        req.bookingDate(),
-        req.startTime(),
-        req.endTime(),
-        List.of(BookingStatus.APPROVED, BookingStatus.PENDING));
-    if (conflicts > 0) {
-      throw new ConflictException("Booking conflict for the selected time window");
-    }
+    ensureResourceCanBeBooked(resource, req.expectedAttendees());
+    ensureNoConflicts(resource.getId(), req.bookingDate(), req.startTime(), req.endTime(), null);
 
     var user = userRepository.findById(CurrentUser.id())
         .orElseThrow(() -> new NotFoundException("User not found"));
@@ -94,6 +78,39 @@ public class BookingServiceImpl implements BookingService {
         "BOOKING",
         booking.getId());
 
+    return bookingMapper.toResponse(booking);
+  }
+
+  @Override
+  public BookingResponse update(String id, BookingCreateRequest req) {
+    validateBookingRequest(req);
+
+    var booking = bookingRepository.findById(id).orElseThrow(() -> new NotFoundException("Booking not found"));
+    boolean isAdmin = CurrentUser.requireAuth().getAuthorities().stream()
+        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    boolean isOwner = booking.getUser().getId().equals(CurrentUser.id());
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException("Not allowed to edit this booking");
+    }
+    if (booking.getStatus() != BookingStatus.PENDING) {
+      throw new ConflictException("Only PENDING bookings can be edited");
+    }
+
+    var resource = resourceRepository.findById(req.resourceId())
+        .orElseThrow(() -> new NotFoundException("Resource not found"));
+    ensureResourceCanBeBooked(resource, req.expectedAttendees());
+    ensureNoConflictsForUpdate(booking, resource.getId(), req.bookingDate(), req.startTime(), req.endTime());
+
+    booking.setResource(resource);
+    booking.setBookingDate(req.bookingDate());
+    booking.setStartTime(req.startTime());
+    booking.setEndTime(req.endTime());
+    booking.setPurpose(req.purpose());
+    booking.setExpectedAttendees(req.expectedAttendees());
+    booking.setNotes(req.notes());
+    booking.setUpdatedAt(Instant.now());
+
+    booking = bookingRepository.save(booking);
     return bookingMapper.toResponse(booking);
   }
 
@@ -302,5 +319,48 @@ public class BookingServiceImpl implements BookingService {
         .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     if (!isAdmin)
       throw new ForbiddenException("Admin privileges required");
+  }
+
+  private void validateBookingRequest(BookingCreateRequest req) {
+    if (!req.startTime().isBefore(req.endTime())) {
+      throw new ConflictException("Start time must be before end time");
+    }
+  }
+
+  private void ensureResourceCanBeBooked(com.smartcampus.entity.Resource resource, int expectedAttendees) {
+    if (resource.getStatus() != ResourceStatus.ACTIVE) {
+      throw new ConflictException("Resource is not available for booking");
+    }
+    if (resource.getCapacity() > 0 && expectedAttendees > resource.getCapacity()) {
+      throw new ConflictException("Expected attendees exceed resource capacity");
+    }
+  }
+
+  private void ensureNoConflicts(String resourceId, LocalDate bookingDate, java.time.LocalTime startTime,
+      java.time.LocalTime endTime, String excludeBookingId) {
+    long conflicts = bookingRepository.countConflicts(resourceId, bookingDate, startTime, endTime,
+        List.of(BookingStatus.APPROVED, BookingStatus.PENDING));
+    if (conflicts > 0) {
+      throw new ConflictException("Booking conflict for the selected time window");
+    }
+  }
+
+  private void ensureNoConflictsForUpdate(Booking booking, String resourceId, LocalDate bookingDate,
+      java.time.LocalTime startTime, java.time.LocalTime endTime) {
+    long conflicts = bookingRepository.countConflicts(resourceId, bookingDate, startTime, endTime,
+        List.of(BookingStatus.APPROVED, BookingStatus.PENDING));
+
+    boolean currentBookingWouldMatch = booking.getResource().getId().equals(resourceId)
+        && booking.getBookingDate().equals(bookingDate)
+        && booking.getStartTime().isBefore(endTime)
+        && booking.getEndTime().isAfter(startTime);
+
+    if (currentBookingWouldMatch) {
+      conflicts = Math.max(0, conflicts - 1);
+    }
+
+    if (conflicts > 0) {
+      throw new ConflictException("Booking conflict for the selected time window");
+    }
   }
 }

@@ -14,6 +14,20 @@ export async function createBooking(body) {
   }
 }
 
+export async function updateBooking(id, body) {
+  try {
+    const res = await http.put(`/bookings/${id}`, body);
+    return res.data?.data;
+  } catch (error) {
+    const message =
+      error?.response?.data?.error?.message ||
+      error?.response?.data?.message ||
+      error?.message ||
+      'Failed to update booking';
+    throw new Error(message);
+  }
+}
+
 export async function listBookings(params) {
   const res = await http.get('/bookings', { params });
   return res.data?.data;
