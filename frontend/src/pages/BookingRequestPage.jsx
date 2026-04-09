@@ -21,6 +21,7 @@ import {
   Package,
 } from 'lucide-react';
 
+//Resource Type Options
 const RESOURCE_TYPE_OPTIONS = [
   { value: '', label: 'All Types' },
   { value: 'LECTURE_HALL', label: 'Lecture Hall' },
