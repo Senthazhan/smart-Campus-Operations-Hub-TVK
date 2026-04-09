@@ -29,7 +29,6 @@ import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
 import org.springframework.data.mongodb.core.aggregation.LookupOperation;
 import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.support.PageableExecutionUtils;
 import org.bson.types.ObjectId;
 import java.util.ArrayList;
@@ -215,12 +214,13 @@ public class BookingServiceImpl implements BookingService {
       throw new ConflictException("Only PENDING bookings can be approved");
     }
 
-    long conflicts = bookingRepository.countConflicts(
+    long conflicts = countConflicts(
         booking.getResource().getId(),
         booking.getBookingDate(),
         booking.getStartTime(),
         booking.getEndTime(),
-        List.of(BookingStatus.APPROVED));
+        List.of(BookingStatus.APPROVED),
+        null);
     if (conflicts > 0) {
       throw new ConflictException("Cannot approve due to an existing approved booking conflict");
     }
@@ -338,8 +338,8 @@ public class BookingServiceImpl implements BookingService {
 
   private void ensureNoConflicts(String resourceId, LocalDate bookingDate, java.time.LocalTime startTime,
       java.time.LocalTime endTime, String excludeBookingId) {
-    long conflicts = bookingRepository.countConflicts(resourceId, bookingDate, startTime, endTime,
-        List.of(BookingStatus.APPROVED, BookingStatus.PENDING));
+    long conflicts = countConflicts(resourceId, bookingDate, startTime, endTime,
+        List.of(BookingStatus.APPROVED, BookingStatus.PENDING), excludeBookingId);
     if (conflicts > 0) {
       throw new ConflictException("Booking conflict for the selected time window");
     }
@@ -347,8 +347,8 @@ public class BookingServiceImpl implements BookingService {
 
   private void ensureNoConflictsForUpdate(Booking booking, String resourceId, LocalDate bookingDate,
       java.time.LocalTime startTime, java.time.LocalTime endTime) {
-    long conflicts = bookingRepository.countConflicts(resourceId, bookingDate, startTime, endTime,
-        List.of(BookingStatus.APPROVED, BookingStatus.PENDING));
+    long conflicts = countConflicts(resourceId, bookingDate, startTime, endTime,
+        List.of(BookingStatus.APPROVED, BookingStatus.PENDING), booking.getId());
 
     boolean currentBookingWouldMatch = booking.getResource().getId().equals(resourceId)
         && booking.getBookingDate().equals(bookingDate)
@@ -362,5 +362,14 @@ public class BookingServiceImpl implements BookingService {
     if (conflicts > 0) {
       throw new ConflictException("Booking conflict for the selected time window");
     }
+  }
+
+  private long countConflicts(String resourceId, LocalDate bookingDate, java.time.LocalTime startTime,
+      java.time.LocalTime endTime, List<BookingStatus> statuses, String excludeBookingId) {
+    return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
+        .filter(existing -> excludeBookingId == null || !excludeBookingId.equals(existing.getId()))
+        .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
+        .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
+        .count();
   }
 }

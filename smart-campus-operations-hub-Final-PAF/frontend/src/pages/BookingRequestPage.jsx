@@ -4,6 +4,7 @@ import { listResources } from '../api/resourcesApi';
 import { createBooking, getBooking, updateBooking } from '../api/bookingsApi';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { Badge } from '../components/common/Badge';
@@ -61,6 +62,8 @@ export function BookingRequestPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [bookingNotice, setBookingNotice] = useState({ open: false, title: '', message: '' });
+  const [lastNoticeKey, setLastNoticeKey] = useState('');
 
   const selectedResource = useMemo(
     () => resources.find((r) => String(r.id) === String(resourceId)),
@@ -113,6 +116,11 @@ export function BookingRequestPage() {
     if (filterType) params.type = filterType;
     if (filterBuilding) params.building = filterBuilding;
     if (filterMinCapacity) params.minCapacity = parseInt(filterMinCapacity, 10);
+    if (form.bookingDate && form.startTime && form.endTime) {
+      params.bookingDate = form.bookingDate;
+      params.startTime = form.startTime;
+      params.endTime = form.endTime;
+    }
 
     listResources(params)
       .then((d) => {
@@ -142,7 +150,16 @@ export function BookingRequestPage() {
     return () => {
       alive = false;
     };
-  }, [filterQuery, filterType, filterBuilding, filterMinCapacity, resourceId]);
+  }, [
+    filterQuery,
+    filterType,
+    filterBuilding,
+    filterMinCapacity,
+    form.bookingDate,
+    form.startTime,
+    form.endTime,
+    resourceId,
+  ]);
 
   function validate() {
     if (!resourceId) return 'Please select a resource';
@@ -155,11 +172,16 @@ export function BookingRequestPage() {
     return null;
   }
 
+  function openBookingNotice(title, message) {
+    setBookingNotice({ open: true, title, message });
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     const validationError = validate();
     if (validationError) {
       setError(validationError);
+      openBookingNotice('Booking Not Allowed', validationError);
       return;
     }
 
@@ -185,11 +207,47 @@ export function BookingRequestPage() {
       nav('/my-bookings');
     } catch (err) {
       console.error('Booking submission error:', err);
-      setError(err?.message || `Failed to ${isEditMode ? 'update' : 'submit'} booking request`);
+      const message = err?.message || `Failed to ${isEditMode ? 'update' : 'submit'} booking request`;
+      setError(message);
+      openBookingNotice('Booking Not Allowed', message);
     } finally {
       setSaving(false);
     }
   }
+
+  useEffect(() => {
+    const hasSchedule = Boolean(form.bookingDate && form.startTime && form.endTime);
+    const noticeKey = [
+      form.bookingDate,
+      form.startTime,
+      form.endTime,
+      filterType,
+      filterBuilding,
+      filterMinCapacity,
+      filterQuery,
+    ].join('|');
+
+    if (!hasSchedule || resourcesLoading || resources.length > 0 || noticeKey === lastNoticeKey) {
+      return;
+    }
+
+    openBookingNotice(
+      'No Booking Slot Available',
+      'No resources are available for the selected date and time. The slot may already be reserved, outside allowed availability, or filtered out by your current search criteria.',
+    );
+    setLastNoticeKey(noticeKey);
+  }, [
+    form.bookingDate,
+    form.startTime,
+    form.endTime,
+    filterType,
+    filterBuilding,
+    filterMinCapacity,
+    filterQuery,
+    resourcesLoading,
+    resources.length,
+    lastNoticeKey,
+  ]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -266,16 +324,58 @@ export function BookingRequestPage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-sm font-bold text-[var(--color-text)] uppercase tracking-widest">2. Schedule &amp; Logistics</h3>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Date"
+                      type="date"
+                      value={form.bookingDate}
+                      onChange={(e) => setForm((f) => ({ ...f, bookingDate: e.target.value }))}
+                      required
+                    />
+                    <Input
+                      label="Expected Attendees"
+                      type="number"
+                      min="1"
+                      value={form.expectedAttendees}
+                      onChange={(e) => setForm((f) => ({ ...f, expectedAttendees: e.target.value }))}
+                      required
+                    />
+                    <Input
+                      label="Start Time"
+                      type="time"
+                      value={form.startTime}
+                      onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
+                      required
+                    />
+                    <Input
+                      label="End Time"
+                      type="time"
+                      value={form.endTime}
+                      onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="h-px bg-[var(--color-divider)]" />
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                       <Search className="w-4 h-4" />
                     </div>
-                    <h3 className="text-sm font-bold text-[var(--color-text)] uppercase tracking-widest">2. Select Resource</h3>
+                    <h3 className="text-sm font-bold text-[var(--color-text)] uppercase tracking-widest">3. Select Resource</h3>
                   </div>
 
                   {resourcesLoading ? (
                     <p className="text-sm text-[var(--color-muted)] font-medium animate-pulse">Loading available resources...</p>
                   ) : resources.length === 0 ? (
                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-600 dark:text-amber-400 font-medium">
-                      No active resources match your filters. Try adjusting the criteria above.
+                      No resources are available for this request. Adjust the time slot or filters to continue.
                     </div>
                   ) : (
                     <Select
@@ -319,48 +419,6 @@ export function BookingRequestPage() {
                       )}
                     </div>
                   )}
-                </div>
-
-                <div className="h-px bg-[var(--color-divider)]" />
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                    <h3 className="text-sm font-bold text-[var(--color-text)] uppercase tracking-widest">3. Schedule &amp; Logistics</h3>
-                  </div>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <Input
-                      label="Date"
-                      type="date"
-                      value={form.bookingDate}
-                      onChange={(e) => setForm((f) => ({ ...f, bookingDate: e.target.value }))}
-                      required
-                    />
-                    <Input
-                      label="Expected Attendees"
-                      type="number"
-                      min="1"
-                      value={form.expectedAttendees}
-                      onChange={(e) => setForm((f) => ({ ...f, expectedAttendees: e.target.value }))}
-                      required
-                    />
-                    <Input
-                      label="Start Time"
-                      type="time"
-                      value={form.startTime}
-                      onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
-                      required
-                    />
-                    <Input
-                      label="End Time"
-                      type="time"
-                      value={form.endTime}
-                      onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
-                      required
-                    />
-                  </div>
                 </div>
 
                 <div className="h-px bg-[var(--color-divider)]" />
@@ -456,6 +514,17 @@ export function BookingRequestPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={bookingNotice.open}
+        onClose={() => setBookingNotice({ open: false, title: '', message: '' })}
+        onConfirm={() => setBookingNotice({ open: false, title: '', message: '' })}
+        title={bookingNotice.title || 'Booking Notice'}
+        message={bookingNotice.message || 'This booking cannot be completed with the current details.'}
+        confirmLabel="OK"
+        cancelLabel="Close"
+        variant="warning"
+      />
     </div>
   );
 }

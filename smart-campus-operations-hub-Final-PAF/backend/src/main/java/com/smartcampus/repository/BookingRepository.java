@@ -5,6 +5,7 @@ import com.smartcampus.enums.BookingStatus;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Collection;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -30,6 +31,8 @@ public interface BookingRepository extends MongoRepository<Booking, String> {
       LocalTime endTime,
       Collection<BookingStatus> statuses
   );
+
+  List<Booking> findAllByBookingDateAndStatusIn(LocalDate bookingDate, Collection<BookingStatus> statuses);
 
   Page<Booking> findAllByUserId(String userId, Pageable pageable);
 }

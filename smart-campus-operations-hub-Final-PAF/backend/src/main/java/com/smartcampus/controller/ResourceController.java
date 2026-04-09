@@ -9,6 +9,8 @@ import com.smartcampus.service.ResourceService;
 import com.smartcampus.util.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,10 +34,15 @@ public class ResourceController {
       @RequestParam(required = false) ResourceStatus status,
       @RequestParam(required = false) String building,
       @RequestParam(required = false) Integer minCapacity,
+      @RequestParam(required = false) LocalDate bookingDate,
+      @RequestParam(required = false) LocalTime startTime,
+      @RequestParam(required = false) LocalTime endTime,
       @PageableDefault(size = 10) Pageable pageable,
       HttpServletRequest req
   ) {
-    return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI(), resourceService.search(q, type, status, building, minCapacity, pageable)));
+    return ResponseEntity.ok(ApiResponse.ok(
+        req.getRequestURI(),
+        resourceService.search(q, type, status, building, minCapacity, bookingDate, startTime, endTime, pageable)));
   }
 
   @GetMapping("/{id}")
