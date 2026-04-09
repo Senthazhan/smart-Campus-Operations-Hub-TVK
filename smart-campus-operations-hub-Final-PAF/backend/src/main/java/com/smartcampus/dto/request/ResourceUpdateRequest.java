@@ -17,6 +17,7 @@ public record ResourceUpdateRequest(
     @NotBlank @Size(max = 50) String resourceCode,
     @NotNull ResourceType type,
     @Size(max = 5000) String description,
+    @Size(max = 2000000) String imageUrl,
     @Min(0) @Max(5000) int capacity,
     @NotBlank @Size(max = 255) String building,
     @Size(max = 30) String floor,

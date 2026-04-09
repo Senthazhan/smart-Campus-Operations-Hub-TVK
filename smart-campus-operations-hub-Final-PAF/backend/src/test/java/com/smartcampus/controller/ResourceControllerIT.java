@@ -42,13 +42,13 @@ public class ResourceControllerIT {
     void createResource_AsAdmin_ReturnsCreated() throws Exception {
         // Arrange
         ResourceCreateRequest request = new ResourceCreateRequest(
-                "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", 200,
+                "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", null, 200,
                 "Admin Building", "Ground Floor", "G01", "{}",
                 LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         ResourceResponse response = new ResourceResponse(
-                "res-1", "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", 200,
+                "res-1", "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", null, 200,
                 "Admin Building", "Ground Floor", "G01", "{}",
                 LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE, null, null, "admin", "admin"
         );
@@ -70,7 +70,7 @@ public class ResourceControllerIT {
     void createResource_AsUser_ReturnsForbidden() throws Exception {
         // Arrange
         ResourceCreateRequest request = new ResourceCreateRequest(
-                "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", 200,
+                "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", null, 200,
                 "Admin Building", "Ground Floor", "G01", "{}",
                 LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
@@ -103,7 +103,7 @@ public class ResourceControllerIT {
     void getResource_AsUser_ReturnsSuccess() throws Exception {
         // Arrange
         ResourceResponse response = new ResourceResponse(
-                "res-1", "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", 200,
+                "res-1", "Seminar Hall", "SEM-101", ResourceType.SEMINAR_ROOM, "Large Sem Hall", null, 200,
                 "Admin Building", "Ground Floor", "G01", "{}",
                 LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE, null, null, "admin", "admin"
         );

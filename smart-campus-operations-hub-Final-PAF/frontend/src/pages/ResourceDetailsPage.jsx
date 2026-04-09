@@ -60,7 +60,7 @@ export function ResourceDetailsPage() {
 
   const STATUS_MAP = {
     ACTIVE: 'success',
-    UNDER_MAINTENANCE: 'warning',
+    MAINTENANCE: 'warning',
     OUT_OF_SERVICE: 'error',
   };
 
@@ -86,7 +86,7 @@ export function ResourceDetailsPage() {
       const status = data?.status;
       let state = 'ONLINE';
       if (status === 'OUT_OF_SERVICE') state = 'UNAVAILABLE';
-      else if (status === 'UNDER_MAINTENANCE' || status === 'MAINTENANCE') state = i === 0 ? 'UNAVAILABLE' : 'ONLINE';
+      else if (status === 'MAINTENANCE') state = i === 0 ? 'UNAVAILABLE' : 'ONLINE';
       else if (status === 'ACTIVE') state = 'ONLINE';
       else state = 'ONLINE';
 
@@ -145,6 +145,15 @@ export function ResourceDetailsPage() {
           {/* Main Info Area */}
           <div className="lg:col-span-8 space-y-8">
             <Card className="overflow-hidden border-[var(--color-border)] p-0">
+               {data.imageUrl ? (
+                 <div className="h-56 border-b border-[var(--color-border)] bg-[var(--color-bg-alt)]">
+                   <img
+                     src={data.imageUrl}
+                     alt={data.name}
+                     className="w-full h-full object-cover"
+                   />
+                 </div>
+               ) : null}
                <div className="p-8">
                   <div className="flex items-start justify-between gap-6 pb-8 border-b border-[var(--color-border)]">
                      <div className="space-y-4">
@@ -211,7 +220,7 @@ export function ResourceDetailsPage() {
                              {day}{isToday ? ' (Today)' : ''}
                            </div>
                            <div className={`text-[11px] font-bold uppercase tracking-tighter ${isOnline ? 'text-success' : 'text-error'}`}>
-                             {isOnline ? 'Online' : 'U.A'}
+                            {isOnline ? 'Online' : 'Un-Av'}
                            </div>
                          </div>
                        );

@@ -119,4 +119,53 @@ public class FileController {
             return ResponseEntity.internalServerError().build();
         }
     }
+
+    @GetMapping("/resources/{resourceId}/{fileName:.+}")
+    public ResponseEntity<Resource> serveResourceImage(
+            @PathVariable String resourceId,
+            @PathVariable String fileName) {
+
+        try {
+            Path root = Paths.get(appProperties.fileStorageRoot())
+                    .toAbsolutePath()
+                    .normalize();
+
+            Path filePath = root
+                    .resolve("resources")
+                    .resolve(resourceId)
+                    .resolve(fileName)
+                    .normalize();
+
+            if (!filePath.startsWith(root)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                if (fileName.toLowerCase().endsWith(".png")) {
+                    contentType = "image/png";
+                } else if (fileName.toLowerCase().endsWith(".webp")) {
+                    contentType = "image/webp";
+                } else {
+                    contentType = "image/jpeg";
+                }
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CACHE_CONTROL,
+                            "no-cache, no-store, must-revalidate")
+                    .cacheControl(CacheControl.noCache())
+                    .body(resource);
+
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 }

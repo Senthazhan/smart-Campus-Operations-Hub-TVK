@@ -65,6 +65,15 @@ public class ResourceController {
     return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI(), resourceService.update(id, body)));
   }
 
+  @PostMapping("/{id}/image")
+  @PreAuthorize("hasRole('ADMIN')")
+  public ResponseEntity<ApiResponse<ResourceResponse>> uploadImage(
+      @PathVariable String id,
+      @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+      HttpServletRequest req) {
+    return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI(), resourceService.uploadImage(id, file)));
+  }
+
   @DeleteMapping("/{id}")
   @PreAuthorize("hasRole('ADMIN')")
   public ResponseEntity<Void> delete(@PathVariable String id) {
