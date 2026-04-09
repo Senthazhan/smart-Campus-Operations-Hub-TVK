@@ -4,7 +4,7 @@ export async function listNotifications(params) {
   const res = await http.get('/notifications', { params });
   return res.data?.data;
 }
-
+// Mark a notification as read
 export async function markNotificationRead(id) {
   const res = await http.patch(`/notifications/${id}/read`);
   return res.data?.data;
