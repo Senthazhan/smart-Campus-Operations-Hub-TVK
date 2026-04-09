@@ -21,6 +21,7 @@ import java.time.LocalTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
@@ -115,7 +116,7 @@ public class BookingServiceImpl implements BookingService {
 
   @Override
   public Page<BookingResponse> list(String q, BookingStatus status, String resourceId, LocalDate from, LocalDate to,
-      Pageable pageable) {
+      String chronology, Pageable pageable) {
     Authentication auth = CurrentUser.requireAuth();
     boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
@@ -163,6 +164,8 @@ public class BookingServiceImpl implements BookingService {
           Criteria.where("resource_details.resourceCode").regex(regex, "i"),
           Criteria.where("user_details.email").regex(regex, "i"))));
     }
+
+    ops.add(Aggregation.sort(resolveBookingSort(chronology)));
 
     // Pagination
     ops.add(Aggregation.skip((long) pageable.getOffset()));
@@ -375,5 +378,13 @@ public class BookingServiceImpl implements BookingService {
         .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
         .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
         .count();
+  }
+
+  private Sort resolveBookingSort(String chronology) {
+    Sort.Direction direction = "oldest".equalsIgnoreCase(chronology) ? Sort.Direction.ASC : Sort.Direction.DESC;
+    return Sort.by(
+        new Sort.Order(direction, "bookingDate"),
+        new Sort.Order(direction, "startTime"),
+        new Sort.Order(direction, "createdAt"));
   }
 }
