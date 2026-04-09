@@ -1,5 +1,5 @@
 import { http } from './http';
-
+// Notifications API
 export async function listNotifications(params) {
   const res = await http.get('/notifications', { params });
   return res.data?.data;

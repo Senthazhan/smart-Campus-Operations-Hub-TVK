@@ -74,7 +74,6 @@ export function NotificationsPage() {
       }
     }
   };
-// Note: The above function assumes that the backend sends notifications with an 'entityType' field to determine the type of entity the notification is related to. Adjust the logic as needed based on your actual data structure.
   return (
     <div className="max-w-5xl mx-auto space-y-10 animate-fade-in-up pb-20">
       {/* Premium Header */}
