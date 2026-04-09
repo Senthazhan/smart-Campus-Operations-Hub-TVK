@@ -11,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 public interface BookingService {
   BookingResponse create(BookingCreateRequest req);
 
+  BookingResponse update(String id, BookingCreateRequest req);
+
   Page<BookingResponse> list(String q, BookingStatus status, String resourceId, LocalDate from, LocalDate to, Pageable pageable);
 
   BookingResponse get(String id);

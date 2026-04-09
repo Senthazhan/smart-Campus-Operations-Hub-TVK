@@ -21,6 +21,16 @@ public interface BookingRepository extends MongoRepository<Booking, String> {
       Collection<BookingStatus> statuses
   );
 
+  @Query(value = "{ '_id': { $ne: ?0 }, 'resource': ?1, 'bookingDate': ?2, 'status': { $in: ?5 }, 'startTime': { $lt: ?4 }, 'endTime': { $gt: ?3 } }", count = true)
+  long countConflictsExcludingBooking(
+      String bookingId,
+      String resourceId,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      Collection<BookingStatus> statuses
+  );
+
   Page<Booking> findAllByUserId(String userId, Pageable pageable);
 }
 
