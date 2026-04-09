@@ -5,11 +5,23 @@ import com.smartcampus.dto.request.ResourceUpdateRequest;
 import com.smartcampus.dto.response.ResourceResponse;
 import com.smartcampus.enums.ResourceStatus;
 import com.smartcampus.enums.ResourceType;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 public interface ResourceService {
-  Page<ResourceResponse> search(String q, ResourceType type, ResourceStatus status, String building, Integer minCapacity, Pageable pageable);
+  Page<ResourceResponse> search(
+      String q,
+      ResourceType type,
+      ResourceStatus status,
+      String building,
+      Integer minCapacity,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      Pageable pageable
+  );
 
   ResourceResponse getById(String id);
 

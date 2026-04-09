@@ -6,6 +6,7 @@ import { Badge } from '../components/common/Badge';
 import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { CardLoader } from '../components/common/PageLoader';
+import { Spinner } from '../components/common/Spinner';
 import { 
   ShieldCheck, 
   Search, 
@@ -38,7 +39,7 @@ export function AdminBookingsPage() {
   const [error, setError] = useState(null);
 
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState('PENDING');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
@@ -124,14 +125,21 @@ export function AdminBookingsPage() {
             <Input 
               label="Search Query" 
               value={q} 
-              onChange={(e) => setQ(e.target.value)} 
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(0);
+              }} 
               placeholder="Resource / User..." 
             />
             <Select
               label="Flow Status"
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(0);
+              }}
               options={[
+                { value: 'PENDING', label: 'Pending First' },
                 { value: '', label: 'All Statuses' },
                 { value: 'PENDING', label: 'Pending' },
                 { value: 'APPROVED', label: 'Approved' },
@@ -139,8 +147,24 @@ export function AdminBookingsPage() {
                 { value: 'CANCELLED', label: 'Cancelled' },
               ]}
             />
-            <Input label="From Date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-            <Input label="To Date" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <Input
+              label="From Date"
+              type="date"
+              value={from}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setPage(0);
+              }}
+            />
+            <Input
+              label="To Date"
+              type="date"
+              value={to}
+              onChange={(e) => {
+                setTo(e.target.value);
+                setPage(0);
+              }}
+            />
          </div>
       </Card>
 
@@ -272,7 +296,19 @@ export function AdminBookingsPage() {
              </div>
              <h3 className="text-xl font-extrabold text-[var(--color-text)]">No matching requests</h3>
              <p className="text-[var(--color-text-secondary)] max-w-xs mx-auto mt-2 text-sm font-medium">Try clearing your filters or adjusting search parameters.</p>
-             <Button variant="secondary" className="mt-8 px-8" onClick={() => { setQ(''); setStatus(''); setFrom(''); setTo(''); }}>Reset All Filters</Button>
+             <Button
+               variant="secondary"
+               className="mt-8 px-8"
+               onClick={() => {
+                 setQ('');
+                 setStatus('PENDING');
+                 setFrom('');
+                 setTo('');
+                 setPage(0);
+               }}
+             >
+               Reset All Filters
+             </Button>
           </div>
         )}
       </Card>

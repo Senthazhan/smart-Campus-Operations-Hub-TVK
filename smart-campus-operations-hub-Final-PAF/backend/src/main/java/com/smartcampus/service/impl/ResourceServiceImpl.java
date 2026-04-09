@@ -4,23 +4,27 @@ import com.smartcampus.dto.request.ResourceCreateRequest;
 import com.smartcampus.dto.request.ResourceUpdateRequest;
 import com.smartcampus.dto.response.ResourceResponse;
 import com.smartcampus.entity.Resource;
+import com.smartcampus.enums.BookingStatus;
 import com.smartcampus.enums.ResourceStatus;
 import com.smartcampus.enums.ResourceType;
 import com.smartcampus.exception.ConflictException;
 import com.smartcampus.exception.NotFoundException;
 import com.smartcampus.mapper.ResourceMapper;
+import com.smartcampus.repository.BookingRepository;
 import com.smartcampus.repository.ResourceRepository;
-import com.smartcampus.security.CurrentUser;
 import com.smartcampus.security.CurrentUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.support.PageableExecutionUtils;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +35,7 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
   private final ResourceRepository resourceRepository;
   private final ResourceMapper resourceMapper;
   private final MongoTemplate mongoTemplate;
+  private final BookingRepository bookingRepository;
 
   @Override
   public Page<ResourceResponse> search(
@@ -39,6 +44,9 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
       ResourceStatus status,
       String building,
       Integer minCapacity,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
       Pageable pageable
   ) {
     Authentication auth = CurrentUser.requireAuth();
@@ -47,7 +55,11 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
       status = ResourceStatus.ACTIVE;
     }
 
-    Query query = new Query().with(pageable);
+    boolean hasAvailabilityWindow = bookingDate != null && startTime != null && endTime != null;
+    Query query = new Query();
+    if (!hasAvailabilityWindow) {
+      query.with(pageable);
+    }
     List<Criteria> criteriaList = new ArrayList<>();
 
     if (type != null) {
@@ -75,6 +87,29 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
     }
 
     List<Resource> resources = mongoTemplate.find(query, Resource.class);
+
+    if (hasAvailabilityWindow) {
+      resources = resources.stream()
+          .filter(resource -> countConflicts(
+              resource.getId(),
+              bookingDate,
+              startTime,
+              endTime,
+              List.of(BookingStatus.APPROVED, BookingStatus.PENDING)) == 0)
+          .toList();
+
+      int startIndex = (int) pageable.getOffset();
+      int endIndex = Math.min(startIndex + pageable.getPageSize(), resources.size());
+      List<Resource> pagedResources = startIndex >= resources.size()
+          ? List.of()
+          : resources.subList(startIndex, endIndex);
+
+      return new PageImpl<>(
+          pagedResources.stream().map(resourceMapper::toResponse).toList(),
+          pageable,
+          resources.size());
+    }
+
     return PageableExecutionUtils.getPage(
         resources,
         pageable,
@@ -126,6 +161,14 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
       throw new NotFoundException("Resource not found");
     }
     resourceRepository.deleteById(id);
+  }
+
+  private long countConflicts(String resourceId, LocalDate bookingDate, LocalTime startTime, LocalTime endTime,
+      List<BookingStatus> statuses) {
+    return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
+        .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
+        .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
+        .count();
   }
 }
 
