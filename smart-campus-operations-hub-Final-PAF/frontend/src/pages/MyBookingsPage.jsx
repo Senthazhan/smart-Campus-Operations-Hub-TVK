@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { listBookings, cancelBooking } from '../api/bookingsApi';
 import { Button } from '../components/common/Button';
@@ -17,7 +17,10 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
-  XCircle
+  XCircle,
+  QrCode,
+  Download,
+  X
 } from 'lucide-react';
 import { CardLoader } from '../components/common/PageLoader';
 
@@ -44,25 +47,74 @@ function sortBookingContent(content, chronology) {
   return [...(content || [])].sort((a, b) => compareBookings(a, b, chronology));
 }
 
+function buildBookingQrPayload(booking) {
+  return [
+    'SMART CAMPUS OPERATIONS HUB',
+    'BOOKING PASS',
+    '',
+    `Resource: ${booking.resourceName}`,
+    `Code: ${booking.resourceCode}`,
+    `Date: ${booking.bookingDate}`,
+    `Time: ${booking.startTime} - ${booking.endTime}`,
+    `Purpose: ${booking.purpose}`,
+    `Attendees: ${booking.expectedAttendees}`,
+    `Status: ${booking.status}`,
+    '',
+    `Booking ID: ${booking.id}`,
+  ].join('\n');
+}
+
+function buildBookingQrUrl(booking) {
+  const payload = encodeURIComponent(buildBookingQrPayload(booking));
+  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${payload}`;
+}
+
+const PAGE_SIZE = 7;
+
 export function MyBookingsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [chronology, setChronology] = useState('latest');
-  const [data, setData] = useState(null);
+  const [visibility, setVisibility] = useState('active');
+  const [allBookings, setAllBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [cancelModal, setCancelModal] = useState({ open: false, id: null });
+  const [qrBooking, setQrBooking] = useState(null);
   const bookingsCacheRef = useRef(new Map());
+
+  const filteredBookings = useMemo(() => {
+    if (visibility === 'cancelled') {
+      return allBookings.filter((booking) => booking.status === 'CANCELLED');
+    }
+    if (visibility === 'all') {
+      return allBookings;
+    }
+    return allBookings.filter((booking) => booking.status !== 'CANCELLED');
+  }, [allBookings, visibility]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const visibleBookings = useMemo(() => {
+    const startIndex = safePage * PAGE_SIZE;
+    return filteredBookings.slice(startIndex, startIndex + PAGE_SIZE);
+  }, [filteredBookings, safePage]);
+
+  useEffect(() => {
+    if (page !== safePage) {
+      setPage(safePage);
+    }
+  }, [page, safePage]);
 
   useEffect(() => {
     let alive = true;
     setError(null);
-    const cacheKey = `${chronology}:${page}`;
-    const cachedPage = bookingsCacheRef.current.get(cacheKey);
+    const cacheKey = chronology;
+    const cachedBookings = bookingsCacheRef.current.get(cacheKey);
 
-    if (cachedPage) {
-      setData(cachedPage);
+    if (cachedBookings) {
+      setAllBookings(cachedBookings);
       setLoading(false);
       return () => {
         alive = false;
@@ -70,11 +122,12 @@ export function MyBookingsPage() {
     }
 
     setLoading(true);
-    listBookings({ page, size: 7, chronology })
+    listBookings({ page: 0, size: 200, chronology })
       .then((d) => {
         if (!alive) return;
-        bookingsCacheRef.current.set(cacheKey, d);
-        setData(d);
+        const nextBookings = d?.content || [];
+        bookingsCacheRef.current.set(cacheKey, nextBookings);
+        setAllBookings(nextBookings);
       })
       .catch((e) => {
         if (!alive) return;
@@ -85,7 +138,7 @@ export function MyBookingsPage() {
         setLoading(false);
       });
     return () => { alive = false; };
-  }, [page, chronology]);
+  }, [chronology]);
 
   async function handleCancelConfirm() {
     const id = cancelModal.id;
@@ -95,16 +148,26 @@ export function MyBookingsPage() {
     setBusyId(id);
     setError(null);
     try {
-      await cancelBooking(id);
+      const updatedBooking = await cancelBooking(id);
       bookingsCacheRef.current.clear();
-      const d = await listBookings({ page, size: 7, chronology });
-      bookingsCacheRef.current.set(`${chronology}:${page}`, d);
-      setData(d);
+      setAllBookings((current) =>
+        current.map((booking) => (booking.id === id ? { ...booking, ...updatedBooking } : booking)),
+      );
     } catch (e) {
       setError(e?.response?.data?.error?.message || 'Failed to cancel booking');
     } finally {
       setBusyId(null);
     }
+  }
+
+  function handleDownloadQr() {
+    if (!qrBooking) return;
+    const link = document.createElement('a');
+    link.href = buildBookingQrUrl(qrBooking);
+    link.download = `${qrBooking.resourceCode || 'booking'}-${qrBooking.bookingDate}.png`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.click();
   }
 
   return (
@@ -128,20 +191,26 @@ export function MyBookingsPage() {
                 const nextChronology = e.target.value;
                 setChronology(nextChronology);
                 setPage(0);
-                setData((current) => {
-                  if (!current?.content?.length) return current;
-                  return {
-                    ...current,
-                    number: 0,
-                    first: true,
-                    last: current.totalPages ? current.totalPages <= 1 : current.last,
-                    content: sortBookingContent(current.content, nextChronology),
-                  };
-                });
+                setAllBookings((current) => sortBookingContent(current, nextChronology));
               }}
               options={[
                 { value: 'latest', label: 'Latest to Oldest' },
                 { value: 'oldest', label: 'Oldest to Latest' },
+              ]}
+            />
+          </div>
+          <div className="w-full lg:w-56">
+            <Select
+              label="Booking View"
+              value={visibility}
+              onChange={(e) => {
+                setVisibility(e.target.value);
+                setPage(0);
+              }}
+              options={[
+                { value: 'active', label: 'Hide Cancelled' },
+                { value: 'all', label: 'Show All' },
+                { value: 'cancelled', label: 'Cancelled Only' },
               ]}
             />
           </div>
@@ -174,9 +243,9 @@ export function MyBookingsPage() {
 
       {/* Pipeline Content */}
       <Card className="p-0 overflow-hidden border-[var(--color-border)]">
-        {loading && !data ? (
+        {loading && !allBookings.length ? (
           <CardLoader text="Syncing Matrix Records..." />
-        ) : data?.content?.length ? (
+        ) : visibleBookings.length ? (
           <>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -190,7 +259,7 @@ export function MyBookingsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-divider)]">
-                  {data.content.map((b) => (
+                  {visibleBookings.map((b) => (
                     <tr key={b.id} className="group hover:bg-[var(--color-surface-soft)] transition-all">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
@@ -251,6 +320,17 @@ export function MyBookingsPage() {
                                Edit
                              </Button>
                            )}
+                           {b.status === 'APPROVED' && (
+                             <Button
+                               variant="soft"
+                               size="sm"
+                               className="h-8 text-[10px] font-black uppercase tracking-widest"
+                               onClick={() => setQrBooking(b)}
+                             >
+                               <QrCode className="w-3.5 h-3.5" />
+                               View QR
+                             </Button>
+                           )}
                            <Button 
                               variant="ghost" 
                               size="sm" 
@@ -281,13 +361,13 @@ export function MyBookingsPage() {
             {/* Pagination Matrix */}
             <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-bg-alt)]/20 flex items-center justify-between">
                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
-                  Log Index {data.number + 1} of {data.totalPages || 1}
+                  Log Index {safePage + 1} of {totalPages}
                </div>
                <div className="flex gap-2">
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    disabled={data.first} 
+                    disabled={safePage === 0} 
                     onClick={() => setPage(p => p - 1)}
                     className="h-8 w-8 p-0 rounded-lg"
                   >
@@ -296,7 +376,7 @@ export function MyBookingsPage() {
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    disabled={data.last} 
+                    disabled={safePage >= totalPages - 1} 
                     onClick={() => setPage(p => p + 1)}
                     className="h-8 w-8 p-0 rounded-lg"
                   >
@@ -328,6 +408,88 @@ export function MyBookingsPage() {
         confirmLabel="Decommission Request"
         variant="danger"
       />
+
+      {qrBooking && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-fade-in">
+          <div
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+            onClick={() => setQrBooking(null)}
+          />
+
+          <Card className="relative w-full max-w-xl p-0 overflow-hidden shadow-2xl border-[var(--color-border)] bg-[var(--color-surface)]">
+            <div className="px-6 py-5 border-b border-[var(--color-border)] bg-[var(--color-surface)]/60 flex items-start gap-4">
+              <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
+                <QrCode className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-black text-[var(--color-text)]">Approved Booking QR</h3>
+                <p className="text-xs font-medium text-[var(--color-muted)] mt-1">
+                  Show or download this QR for your approved reservation.
+                </p>
+              </div>
+              <button
+                onClick={() => setQrBooking(null)}
+                className="ml-auto p-2 rounded-lg hover:bg-[var(--color-bg-alt)] text-[var(--color-muted)] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 grid md:grid-cols-[260px_1fr] gap-6 items-start">
+              <div className="bg-white rounded-2xl p-4 border border-[var(--color-border)] shadow-soft">
+                <img
+                  src={buildBookingQrUrl(qrBooking)}
+                  alt={`QR code for booking ${qrBooking.id}`}
+                  className="w-full h-auto rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[var(--color-muted)] font-semibold">Resource</span>
+                    <span className="text-[var(--color-text)] font-bold text-right">
+                      {qrBooking.resourceName} ({qrBooking.resourceCode})
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[var(--color-muted)] font-semibold">Date</span>
+                    <span className="text-[var(--color-text)] font-bold text-right">{qrBooking.bookingDate}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[var(--color-muted)] font-semibold">Time</span>
+                    <span className="text-[var(--color-text)] font-bold text-right">
+                      {qrBooking.startTime} - {qrBooking.endTime}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[var(--color-muted)] font-semibold">Purpose</span>
+                    <span className="text-[var(--color-text)] font-bold text-right">{qrBooking.purpose}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[var(--color-muted)] font-semibold">Attendees</span>
+                    <span className="text-[var(--color-text)] font-bold text-right">{qrBooking.expectedAttendees}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-[var(--color-muted)] font-semibold">Status</span>
+                    <span className="text-emerald-400 font-black text-right">{qrBooking.status}</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-[var(--color-border)] flex flex-col sm:flex-row gap-3">
+                  <Button onClick={handleDownloadQr} className="gap-2">
+                    <Download className="w-4 h-4" />
+                    Download QR
+                  </Button>
+                  <Button variant="secondary" onClick={() => setQrBooking(null)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
