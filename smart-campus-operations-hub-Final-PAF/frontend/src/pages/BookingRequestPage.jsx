@@ -66,7 +66,7 @@ export function BookingRequestPage() {
     () => resources.find((r) => String(r.id) === String(resourceId)),
     [resources, resourceId],
   );
-
+//
   useEffect(() => {
     if (!isEditMode) {
       setBookingLoading(false);
