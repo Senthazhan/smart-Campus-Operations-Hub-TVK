@@ -47,6 +47,7 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
       LocalDate bookingDate,
       LocalTime startTime,
       LocalTime endTime,
+      String excludeBookingId,
       Pageable pageable
   ) {
     Authentication auth = CurrentUser.requireAuth();
@@ -90,12 +91,14 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
 
     if (hasAvailabilityWindow) {
       resources = resources.stream()
+          .filter(resource -> isWithinAvailabilityWindow(resource, startTime, endTime))
           .filter(resource -> countConflicts(
               resource.getId(),
               bookingDate,
               startTime,
               endTime,
-              List.of(BookingStatus.APPROVED, BookingStatus.PENDING)) == 0)
+              List.of(BookingStatus.APPROVED, BookingStatus.PENDING),
+              excludeBookingId) == 0)
           .toList();
 
       int startIndex = (int) pageable.getOffset();
@@ -164,11 +167,22 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
   }
 
   private long countConflicts(String resourceId, LocalDate bookingDate, LocalTime startTime, LocalTime endTime,
-      List<BookingStatus> statuses) {
+      List<BookingStatus> statuses, String excludeBookingId) {
     return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
+        .filter(existing -> excludeBookingId == null || !excludeBookingId.equals(existing.getId()))
         .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
         .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
         .count();
+  }
+
+  private boolean isWithinAvailabilityWindow(Resource resource, LocalTime startTime, LocalTime endTime) {
+    if (resource.getAvailableFrom() != null && startTime.isBefore(resource.getAvailableFrom())) {
+      return false;
+    }
+    if (resource.getAvailableTo() != null && endTime.isAfter(resource.getAvailableTo())) {
+      return false;
+    }
+    return true;
   }
 }
 
