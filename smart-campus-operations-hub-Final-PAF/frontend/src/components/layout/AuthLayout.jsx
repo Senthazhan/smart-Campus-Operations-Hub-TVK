@@ -8,9 +8,9 @@ import CampusLogo from '../../assets/CampusOpslogo.svg';
  */
 export function AuthLayout({ children, title, subtitle }) {
   return (
-    <div className="h-screen overflow-hidden flex bg-[var(--color-bg)] font-sans transition-colors duration-500">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-[var(--color-bg)] font-sans transition-colors duration-500">
       {/* Left Side: Premium Interactive Hero */}
-      <div className="hidden lg:flex lg:w-[45%] bg-slate-950 p-16 flex-col justify-between relative overflow-hidden border-r border-white/5">
+      <div className="hidden lg:flex lg:w-[45%] lg:min-h-screen bg-slate-950 p-16 flex-col justify-between relative overflow-hidden border-r border-white/5">
         {/* Animated Background Accents */}
         <div className="absolute top-0 right-0 -mt-24 -mr-24 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute bottom-0 left-0 -mb-32 -ml-32 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px]" />
@@ -72,11 +72,12 @@ export function AuthLayout({ children, title, subtitle }) {
       </div>
 
       {/* Right Side: High-Gloss Form Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+      <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 relative">
         {/* Subtle background blob for right side */}
         <div className="absolute top-1/4 -right-24 w-64 h-64 bg-primary/5 blur-[100px] rounded-full pointer-events-none" />
         
-        <div className="w-full max-w-[460px] relative z-10">
+        <div className="flex-1 flex items-center justify-center py-8 sm:py-10">
+          <div className="w-full max-w-[460px] relative z-10">
           <div className="mb-8 text-center lg:text-left">
             <div className="lg:hidden flex flex-col items-center gap-2 mb-8">
               <div className="flex items-center gap-2.5">
@@ -100,8 +101,9 @@ export function AuthLayout({ children, title, subtitle }) {
             {children}
           </div>
         </div>
+        </div>
 
-        <footer className="absolute bottom-6 left-0 right-0 text-center text-[8px] text-[var(--color-muted)] font-black uppercase tracking-[0.2em] opacity-30">
+        <footer className="relative z-10 pt-4 pb-2 text-center text-[8px] text-[var(--color-muted)] font-black uppercase tracking-[0.2em] opacity-30">
           &copy; {new Date().getFullYear()} Campus Operations Hub &bull; v2.0
         </footer>
       </div>
