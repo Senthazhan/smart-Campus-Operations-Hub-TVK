@@ -20,6 +20,7 @@ public interface ResourceService {
       LocalDate bookingDate,
       LocalTime startTime,
       LocalTime endTime,
+      String excludeBookingId,
       Pageable pageable
   );
 

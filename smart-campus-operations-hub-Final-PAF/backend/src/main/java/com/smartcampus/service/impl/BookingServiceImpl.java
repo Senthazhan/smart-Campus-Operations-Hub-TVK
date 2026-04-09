@@ -15,9 +15,9 @@ import com.smartcampus.repository.ResourceRepository;
 import com.smartcampus.repository.UserRepository;
 import com.smartcampus.security.CurrentUser;
 import com.smartcampus.service.BookingService;
-import java.time.LocalDate;
 import java.time.Instant;
-import java.util.List;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,8 +31,8 @@ import org.springframework.data.mongodb.core.aggregation.LookupOperation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.support.PageableExecutionUtils;
 import org.bson.types.ObjectId;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -51,7 +51,7 @@ public class BookingServiceImpl implements BookingService {
 
     var resource = resourceRepository.findById(req.resourceId())
         .orElseThrow(() -> new NotFoundException("Resource not found"));
-    ensureResourceCanBeBooked(resource, req.expectedAttendees());
+    ensureResourceCanBeBooked(resource, req.expectedAttendees(), req.startTime(), req.endTime());
     ensureNoConflicts(resource.getId(), req.bookingDate(), req.startTime(), req.endTime(), null);
 
     var user = userRepository.findById(CurrentUser.id())
@@ -97,7 +97,7 @@ public class BookingServiceImpl implements BookingService {
 
     var resource = resourceRepository.findById(req.resourceId())
         .orElseThrow(() -> new NotFoundException("Resource not found"));
-    ensureResourceCanBeBooked(resource, req.expectedAttendees());
+    ensureResourceCanBeBooked(resource, req.expectedAttendees(), req.startTime(), req.endTime());
     ensureNoConflictsForUpdate(booking, resource.getId(), req.bookingDate(), req.startTime(), req.endTime());
 
     booking.setResource(resource);
@@ -322,17 +322,30 @@ public class BookingServiceImpl implements BookingService {
   }
 
   private void validateBookingRequest(BookingCreateRequest req) {
+    if (req.bookingDate().isBefore(LocalDate.now())) {
+      throw new ConflictException("Booking date cannot be in the past");
+    }
+    if (req.bookingDate().isEqual(LocalDate.now()) && !req.startTime().isAfter(LocalTime.now())) {
+      throw new ConflictException("Start time must be in the future for bookings scheduled today");
+    }
     if (!req.startTime().isBefore(req.endTime())) {
       throw new ConflictException("Start time must be before end time");
     }
   }
 
-  private void ensureResourceCanBeBooked(com.smartcampus.entity.Resource resource, int expectedAttendees) {
+  private void ensureResourceCanBeBooked(com.smartcampus.entity.Resource resource, int expectedAttendees,
+      LocalTime startTime, LocalTime endTime) {
     if (resource.getStatus() != ResourceStatus.ACTIVE) {
       throw new ConflictException("Resource is not available for booking");
     }
     if (resource.getCapacity() > 0 && expectedAttendees > resource.getCapacity()) {
       throw new ConflictException("Expected attendees exceed resource capacity");
+    }
+    if (resource.getAvailableFrom() != null && startTime.isBefore(resource.getAvailableFrom())) {
+      throw new ConflictException("Booking starts before the resource becomes available");
+    }
+    if (resource.getAvailableTo() != null && endTime.isAfter(resource.getAvailableTo())) {
+      throw new ConflictException("Booking ends after the resource becomes unavailable");
     }
   }
 
@@ -349,15 +362,6 @@ public class BookingServiceImpl implements BookingService {
       java.time.LocalTime startTime, java.time.LocalTime endTime) {
     long conflicts = countConflicts(resourceId, bookingDate, startTime, endTime,
         List.of(BookingStatus.APPROVED, BookingStatus.PENDING), booking.getId());
-
-    boolean currentBookingWouldMatch = booking.getResource().getId().equals(resourceId)
-        && booking.getBookingDate().equals(bookingDate)
-        && booking.getStartTime().isBefore(endTime)
-        && booking.getEndTime().isAfter(startTime);
-
-    if (currentBookingWouldMatch) {
-      conflicts = Math.max(0, conflicts - 1);
-    }
 
     if (conflicts > 0) {
       throw new ConflictException("Booking conflict for the selected time window");

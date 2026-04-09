@@ -37,6 +37,13 @@ export function BookingRequestPage() {
   const location = useLocation();
   const { id: bookingId } = useParams();
   const isEditMode = Boolean(bookingId);
+  const now = new Date();
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   const queryParams = new URLSearchParams(location.search);
   const initialResourceId = queryParams.get('resourceId') || '';
@@ -120,6 +127,9 @@ export function BookingRequestPage() {
       params.bookingDate = form.bookingDate;
       params.startTime = form.startTime;
       params.endTime = form.endTime;
+      if (isEditMode && bookingId) {
+        params.excludeBookingId = bookingId;
+      }
     }
 
     listResources(params)
@@ -158,13 +168,19 @@ export function BookingRequestPage() {
     form.bookingDate,
     form.startTime,
     form.endTime,
+    bookingId,
+    isEditMode,
     resourceId,
   ]);
 
   function validate() {
     if (!resourceId) return 'Please select a resource';
     if (!form.bookingDate) return 'Booking date is required';
+    if (form.bookingDate < today) return 'Booking date cannot be in the past';
     if (!form.startTime || !form.endTime) return 'Start and end time are required';
+    if (form.bookingDate === today && form.startTime <= currentTime) {
+      return 'Start time must be in the future for bookings scheduled today';
+    }
     if (form.startTime >= form.endTime) return 'Start time must be before end time';
     if (!form.purpose.trim()) return 'Purpose is required';
     const attendees = Number(form.expectedAttendees);
@@ -332,6 +348,7 @@ export function BookingRequestPage() {
                     <Input
                       label="Date"
                       type="date"
+                      min={today}
                       value={form.bookingDate}
                       onChange={(e) => setForm((f) => ({ ...f, bookingDate: e.target.value }))}
                       required
@@ -347,6 +364,7 @@ export function BookingRequestPage() {
                     <Input
                       label="Start Time"
                       type="time"
+                      min={form.bookingDate === today ? currentTime : undefined}
                       value={form.startTime}
                       onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
                       required
@@ -354,6 +372,11 @@ export function BookingRequestPage() {
                     <Input
                       label="End Time"
                       type="time"
+                      min={
+                        form.bookingDate === today
+                          ? (form.startTime && form.startTime > currentTime ? form.startTime : currentTime)
+                          : form.startTime || undefined
+                      }
                       value={form.endTime}
                       onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
                       required
@@ -408,6 +431,18 @@ export function BookingRequestPage() {
                         <Users className="w-4 h-4 text-[var(--color-muted)]" />
                         <span>Capacity: {selectedResource.capacity}</span>
                       </div>
+                      {(selectedResource.availableFrom || selectedResource.availableTo) && (
+                        <div className="flex items-center gap-2 text-[var(--color-text-secondary)] font-medium">
+                          <Clock className="w-4 h-4 text-[var(--color-muted)]" />
+                          <span>
+                            Available:
+                            {' '}
+                            {selectedResource.availableFrom || '--:--'}
+                            {' - '}
+                            {selectedResource.availableTo || '--:--'}
+                          </span>
+                        </div>
+                      )}
                       {selectedResource.availableEquipment?.length > 0 && (
                         <div className="sm:col-span-3 flex flex-wrap gap-1 mt-1">
                           {selectedResource.availableEquipment.map((eq) => (

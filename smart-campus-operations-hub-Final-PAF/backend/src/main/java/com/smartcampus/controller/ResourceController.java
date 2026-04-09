@@ -37,12 +37,14 @@ public class ResourceController {
       @RequestParam(required = false) LocalDate bookingDate,
       @RequestParam(required = false) LocalTime startTime,
       @RequestParam(required = false) LocalTime endTime,
+      @RequestParam(required = false) String excludeBookingId,
       @PageableDefault(size = 10) Pageable pageable,
       HttpServletRequest req
   ) {
     return ResponseEntity.ok(ApiResponse.ok(
         req.getRequestURI(),
-        resourceService.search(q, type, status, building, minCapacity, bookingDate, startTime, endTime, pageable)));
+        resourceService.search(
+            q, type, status, building, minCapacity, bookingDate, startTime, endTime, excludeBookingId, pageable)));
   }
 
   @GetMapping("/{id}")
