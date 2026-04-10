@@ -5,6 +5,11 @@ export async function listResources(params) {
   return res.data?.data;
 }
 
+export async function previewResourceTimeFit(params) {
+  const res = await http.get('/resources/time-fit-preview', { params });
+  return res.data?.data;
+}
+
 export async function getResource(id) {
   const res = await http.get(`/resources/${id}`);
   return res.data?.data;

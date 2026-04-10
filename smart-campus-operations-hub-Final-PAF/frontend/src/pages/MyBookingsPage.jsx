@@ -20,7 +20,10 @@ import {
   XCircle,
   QrCode,
   Download,
-  X
+  X,
+  FileText,
+  MapPin,
+  BadgeCheck,
 } from 'lucide-react';
 import { CardLoader } from '../components/common/PageLoader';
 
@@ -90,6 +93,7 @@ export function MyBookingsPage() {
   const [busyId, setBusyId] = useState(null);
   const [cancelModal, setCancelModal] = useState({ open: false, id: null });
   const [qrBooking, setQrBooking] = useState(null);
+  const [detailBooking, setDetailBooking] = useState(null);
   const bookingsCacheRef = useRef(new Map());
 
   const filteredBookings = useMemo(() => {
@@ -376,7 +380,7 @@ export function MyBookingsPage() {
                                Edit
                              </Button>
                            )}
-                           {b.status === 'APPROVED' && (
+                          {b.status === 'APPROVED' && (
                              <Button
                                variant="soft"
                                size="sm"
@@ -387,6 +391,15 @@ export function MyBookingsPage() {
                                View QR
                              </Button>
                            )}
+                           <Button
+                             variant="secondary"
+                             size="sm"
+                             className="h-8 text-[10px] font-black uppercase tracking-widest"
+                             onClick={() => setDetailBooking(b)}
+                           >
+                             <FileText className="w-3.5 h-3.5" />
+                             Details
+                           </Button>
                            <Button 
                               variant="ghost" 
                               size="sm" 
@@ -464,6 +477,162 @@ export function MyBookingsPage() {
         confirmLabel="Decommission Request"
         variant="danger"
       />
+
+      {detailBooking && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-fade-in">
+          <div
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
+            onClick={() => setDetailBooking(null)}
+          />
+
+          <Card className="relative w-full max-w-3xl p-0 overflow-hidden shadow-2xl border-[var(--color-border)] bg-[var(--color-surface)]">
+            <div className="px-6 py-5 border-b border-[var(--color-border)] bg-[var(--color-surface)]/60 flex items-start gap-4">
+              <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-black text-[var(--color-text)]">Booking Details</h3>
+                <p className="text-xs font-medium text-[var(--color-muted)] mt-1">
+                  Full reservation audit snapshot for this request.
+                </p>
+              </div>
+              <button
+                onClick={() => setDetailBooking(null)}
+                className="ml-auto p-2 rounded-lg hover:bg-[var(--color-bg-alt)] text-[var(--color-muted)] transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 grid lg:grid-cols-[1.2fr_0.8fr] gap-6">
+              <div className="space-y-5">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-alt)]/40 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">Resource</div>
+                    <div className="mt-2 text-lg font-black text-[var(--color-text)]">{detailBooking.resourceName}</div>
+                    <div className="mt-1 text-xs font-mono font-bold text-[var(--color-muted)]">{detailBooking.resourceCode}</div>
+                  </div>
+                  <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-alt)]/40 p-4">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">Status</div>
+                    <div className="mt-3">
+                      <StatusIndicator
+                        status={STATUS_VARIANTS[detailBooking.status] || 'secondary'}
+                        label={detailBooking.status}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-[var(--color-border)] p-4">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
+                      <Calendar className="w-3.5 h-3.5" />
+                      Booking Date
+                    </div>
+                    <div className="mt-2 text-sm font-bold text-[var(--color-text)]">{detailBooking.bookingDate}</div>
+                  </div>
+                  <div className="rounded-2xl border border-[var(--color-border)] p-4">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
+                      <Clock className="w-3.5 h-3.5" />
+                      Time Window
+                    </div>
+                    <div className="mt-2 text-sm font-bold text-[var(--color-text)]">
+                      {detailBooking.startTime} - {detailBooking.endTime}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-[var(--color-border)] p-4">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
+                      <Users className="w-3.5 h-3.5" />
+                      Expected Attendees
+                    </div>
+                    <div className="mt-2 text-sm font-bold text-[var(--color-text)]">{detailBooking.expectedAttendees}</div>
+                  </div>
+                  <div className="rounded-2xl border border-[var(--color-border)] p-4">
+                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
+                      <BadgeCheck className="w-3.5 h-3.5" />
+                      Booking ID
+                    </div>
+                    <div className="mt-2 text-xs font-mono font-bold text-[var(--color-text)] break-all">{detailBooking.id}</div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--color-border)] p-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">Purpose</div>
+                  <p className="mt-2 text-sm font-bold text-[var(--color-text)] leading-relaxed">
+                    {detailBooking.purpose || 'No purpose provided.'}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--color-border)] p-4">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">Notes</div>
+                  <p className="mt-2 text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap">
+                    {detailBooking.notes || 'No additional notes were attached to this booking.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-alt)]/40 p-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
+                    <Info className="w-3.5 h-3.5" />
+                    Decision Trace
+                  </div>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[var(--color-muted)] font-semibold">Decision Reason</span>
+                      <span className="text-[var(--color-text)] font-bold text-right max-w-[180px]">
+                        {detailBooking.decisionReason || 'No reviewer note'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[var(--color-muted)] font-semibold">Decided By</span>
+                      <span className="text-[var(--color-text)] font-bold text-right">
+                        {detailBooking.decidedBy || 'Pending review'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[var(--color-muted)] font-semibold">Decided At</span>
+                      <span className="text-[var(--color-text)] font-bold text-right">
+                        {detailBooking.decidedAt ? new Date(detailBooking.decidedAt).toLocaleString() : 'Pending review'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-alt)]/40 p-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
+                    <MapPin className="w-3.5 h-3.5" />
+                    Audit Timestamps
+                  </div>
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[var(--color-muted)] font-semibold">Created At</span>
+                      <span className="text-[var(--color-text)] font-bold text-right">
+                        {detailBooking.createdAt ? new Date(detailBooking.createdAt).toLocaleString() : 'Unavailable'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-[var(--color-muted)] font-semibold">Last Updated</span>
+                      <span className="text-[var(--color-text)] font-bold text-right">
+                        {detailBooking.updatedAt ? new Date(detailBooking.updatedAt).toLocaleString() : 'Unavailable'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <Button variant="secondary" onClick={() => navigate(`/resources/${detailBooking.resourceId}`)}>
+                    Open Resource
+                  </Button>
+                  <Button onClick={() => setDetailBooking(null)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {qrBooking && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-fade-in">
