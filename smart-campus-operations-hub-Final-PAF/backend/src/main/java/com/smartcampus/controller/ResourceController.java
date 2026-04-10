@@ -3,6 +3,7 @@ package com.smartcampus.controller;
 import com.smartcampus.dto.request.ResourceCreateRequest;
 import com.smartcampus.dto.request.ResourceUpdateRequest;
 import com.smartcampus.dto.response.ResourceResponse;
+import com.smartcampus.dto.response.ResourceTimeFitPreviewResponse;
 import com.smartcampus.enums.ResourceStatus;
 import com.smartcampus.enums.ResourceType;
 import com.smartcampus.service.ResourceService;
@@ -44,6 +45,26 @@ public class ResourceController {
     return ResponseEntity.ok(ApiResponse.ok(
         req.getRequestURI(),
         resourceService.search(
+            q, type, status, building, minCapacity, bookingDate, startTime, endTime, excludeBookingId, pageable)));
+  }
+
+  @GetMapping("/time-fit-preview")
+  public ResponseEntity<ApiResponse<Page<ResourceTimeFitPreviewResponse>>> previewTimeFit(
+      @RequestParam(required = false) String q,
+      @RequestParam(required = false) ResourceType type,
+      @RequestParam(required = false) ResourceStatus status,
+      @RequestParam(required = false) String building,
+      @RequestParam(required = false) Integer minCapacity,
+      @RequestParam(required = false) LocalDate bookingDate,
+      @RequestParam(required = false) LocalTime startTime,
+      @RequestParam(required = false) LocalTime endTime,
+      @RequestParam(required = false) String excludeBookingId,
+      @PageableDefault(size = 10) Pageable pageable,
+      HttpServletRequest req
+  ) {
+    return ResponseEntity.ok(ApiResponse.ok(
+        req.getRequestURI(),
+        resourceService.previewTimeFit(
             q, type, status, building, minCapacity, bookingDate, startTime, endTime, excludeBookingId, pageable)));
   }
 

@@ -3,6 +3,7 @@ package com.smartcampus.service;
 import com.smartcampus.dto.request.ResourceCreateRequest;
 import com.smartcampus.dto.request.ResourceUpdateRequest;
 import com.smartcampus.dto.response.ResourceResponse;
+import com.smartcampus.dto.response.ResourceTimeFitPreviewResponse;
 import com.smartcampus.enums.ResourceStatus;
 import com.smartcampus.enums.ResourceType;
 import java.time.LocalDate;
@@ -13,6 +14,19 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface ResourceService {
   Page<ResourceResponse> search(
+      String q,
+      ResourceType type,
+      ResourceStatus status,
+      String building,
+      Integer minCapacity,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      String excludeBookingId,
+      Pageable pageable
+  );
+
+  Page<ResourceTimeFitPreviewResponse> previewTimeFit(
       String q,
       ResourceType type,
       ResourceStatus status,

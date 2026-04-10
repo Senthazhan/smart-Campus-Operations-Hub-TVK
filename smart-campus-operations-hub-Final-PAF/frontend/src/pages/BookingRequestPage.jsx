@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { listResources } from '../api/resourcesApi';
+import { listResources, previewResourceTimeFit } from '../api/resourcesApi';
 import { createBooking, getBooking, updateBooking } from '../api/bookingsApi';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
@@ -19,6 +19,7 @@ import {
   Building2,
   Filter,
   Package,
+  CalendarDays,
 } from 'lucide-react';
 
 const RESOURCE_TYPE_OPTIONS = [
@@ -31,6 +32,29 @@ const RESOURCE_TYPE_OPTIONS = [
   { value: 'STUDY_ROOM', label: 'Study Room' },
   { value: 'EQUIPMENT', label: 'Equipment' },
 ];
+
+function timeToMinutes(value) {
+  if (!value) return null;
+  const [hours, minutes] = String(value).split(':').map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return (hours * 60) + minutes;
+}
+
+function clampPercentage(value) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function buildRangeStyle(start, end) {
+  const startMinutes = timeToMinutes(start);
+  const endMinutes = timeToMinutes(end);
+  if (startMinutes == null || endMinutes == null || endMinutes <= startMinutes) {
+    return { left: '0%', width: '0%' };
+  }
+
+  const left = clampPercentage((startMinutes / 1440) * 100);
+  const width = clampPercentage(((endMinutes - startMinutes) / 1440) * 100);
+  return { left: `${left}%`, width: `${width}%` };
+}
 
 export function BookingRequestPage() {
   const nav = useNavigate();
@@ -56,6 +80,8 @@ export function BookingRequestPage() {
   const [resourceId, setResourceId] = useState(initialResourceId);
   const [resources, setResources] = useState([]);
   const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [previewRows, setPreviewRows] = useState([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(isEditMode);
 
   const [form, setForm] = useState({
@@ -76,7 +102,38 @@ export function BookingRequestPage() {
     () => resources.find((r) => String(r.id) === String(resourceId)),
     [resources, resourceId],
   );
-//
+
+  const requestedSlotStyle = useMemo(
+    () => buildRangeStyle(form.startTime, form.endTime),
+    [form.startTime, form.endTime],
+  );
+
+  const attendeeCapacityRequirement = useMemo(() => {
+    const attendees = Number(form.expectedAttendees);
+    const manualMinimum = Number.parseInt(filterMinCapacity, 10);
+
+    if (Number.isFinite(attendees) && attendees > 0 && Number.isFinite(manualMinimum) && manualMinimum > 0) {
+      return Math.max(attendees, manualMinimum);
+    }
+    if (Number.isFinite(attendees) && attendees > 0) {
+      return attendees;
+    }
+    if (Number.isFinite(manualMinimum) && manualMinimum > 0) {
+      return manualMinimum;
+    }
+    return undefined;
+  }, [form.expectedAttendees, filterMinCapacity]);
+
+  const availabilityBoardResources = useMemo(() => {
+    if (!previewRows.length) return [];
+    const ordered = [...previewRows].sort((a, b) => {
+      if (String(a.resource?.id) === String(resourceId)) return -1;
+      if (String(b.resource?.id) === String(resourceId)) return 1;
+      return String(a.resource?.name || '').localeCompare(String(b.resource?.name || ''));
+    });
+    return ordered.slice(0, 6);
+  }, [previewRows, resourceId]);
+
   useEffect(() => {
     if (!isEditMode) {
       setBookingLoading(false);
@@ -122,7 +179,7 @@ export function BookingRequestPage() {
     if (filterQuery) params.q = filterQuery;
     if (filterType) params.type = filterType;
     if (filterBuilding) params.building = filterBuilding;
-    if (filterMinCapacity) params.minCapacity = parseInt(filterMinCapacity, 10);
+    if (attendeeCapacityRequirement) params.minCapacity = attendeeCapacityRequirement;
     if (form.bookingDate && form.startTime && form.endTime) {
       params.bookingDate = form.bookingDate;
       params.startTime = form.startTime;
@@ -164,13 +221,68 @@ export function BookingRequestPage() {
     filterQuery,
     filterType,
     filterBuilding,
-    filterMinCapacity,
+    attendeeCapacityRequirement,
     form.bookingDate,
     form.startTime,
     form.endTime,
     bookingId,
     isEditMode,
     resourceId,
+  ]);
+
+  useEffect(() => {
+    const hasSchedule = Boolean(form.bookingDate && form.startTime && form.endTime);
+    if (!hasSchedule) {
+      setPreviewRows([]);
+      setPreviewLoading(false);
+      return;
+    }
+
+    let alive = true;
+    setPreviewLoading(true);
+    const params = {
+      page: 0,
+      size: 12,
+      status: 'ACTIVE',
+      bookingDate: form.bookingDate,
+      startTime: form.startTime,
+      endTime: form.endTime,
+    };
+    if (filterQuery) params.q = filterQuery;
+    if (filterType) params.type = filterType;
+    if (filterBuilding) params.building = filterBuilding;
+    if (attendeeCapacityRequirement) params.minCapacity = attendeeCapacityRequirement;
+    if (isEditMode && bookingId) {
+      params.excludeBookingId = bookingId;
+    }
+
+    previewResourceTimeFit(params)
+      .then((d) => {
+        if (!alive) return;
+        setPreviewRows(d?.content || []);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setPreviewRows([]);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setPreviewLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [
+    filterQuery,
+    filterType,
+    filterBuilding,
+    attendeeCapacityRequirement,
+    form.bookingDate,
+    form.startTime,
+    form.endTime,
+    bookingId,
+    isEditMode,
   ]);
 
   function validate() {
@@ -398,18 +510,23 @@ export function BookingRequestPage() {
                     <p className="text-sm text-[var(--color-muted)] font-medium animate-pulse">Loading available resources...</p>
                   ) : resources.length === 0 ? (
                     <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-600 dark:text-amber-400 font-medium">
-                      No resources are available for this request. Adjust the time slot or filters to continue.
+                      No resources are available for this request. Adjust the time slot, attendee count, or filters to continue.
                     </div>
                   ) : (
-                    <Select
-                      label="Choose Resource"
-                      value={resourceId}
-                      onChange={(e) => setResourceId(e.target.value)}
-                      options={resources.map((r) => ({
-                        value: String(r.id),
-                        label: `${r.name} (${r.resourceCode || r.type}) - Cap. ${r.capacity}`,
-                      }))}
-                    />
+                    <div className="space-y-2">
+                      <Select
+                        label="Choose Resource"
+                        value={resourceId}
+                        onChange={(e) => setResourceId(e.target.value)}
+                        options={resources.map((r) => ({
+                          value: String(r.id),
+                          label: `${r.name} (${r.resourceCode || r.type}) - Cap. ${r.capacity}`,
+                        }))}
+                      />
+                      <p className="text-xs font-medium text-[var(--color-muted)]">
+                        Showing resources that can support at least {attendeeCapacityRequirement || form.expectedAttendees || 1} attendees.
+                      </p>
+                    </div>
                   )}
 
                   {selectedResource && (
@@ -461,9 +578,150 @@ export function BookingRequestPage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <CalendarDays className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-sm font-bold text-[var(--color-text)] uppercase tracking-widest">4. Time Fit Preview</h3>
+                  </div>
+
+                  {!form.bookingDate || !form.startTime || !form.endTime ? (
+                    <div className="p-4 bg-[var(--color-bg-alt)] rounded-xl border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] font-medium">
+                      Pick a date and time first. We will then show whether your requested slot fits inside each resource's allowed booking hours.
+                    </div>
+                  ) : previewLoading ? (
+                    <p className="text-sm text-[var(--color-muted)] font-medium animate-pulse">Preparing time preview...</p>
+                  ) : availabilityBoardResources.length === 0 ? (
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-600 dark:text-amber-400 font-medium">
+                      No resources match your current filters, attendee count, and time selection.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-alt)]/40 p-4">
+                        <div className="text-sm font-bold text-[var(--color-text)]">How to read this preview</div>
+                        <div className="mt-2 grid gap-2 text-sm text-[var(--color-text-secondary)]">
+                          <p>
+                            <span className="font-bold text-emerald-300">Green bar</span>
+                            {' '}
+                            means the hours when that resource can normally be booked.
+                          </p>
+                          <p>
+                            <span className="font-bold text-primary">Blue bar</span>
+                            {' '}
+                            means the time slot you selected in this form.
+                          </p>
+                          <p>The status message under each row explains whether that room is available, outside hours, or blocked by another booking.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-6 gap-2 text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
+                        {['00:00', '04:00', '08:00', '12:00', '16:00', '20:00'].map((label) => (
+                          <div key={label}>{label}</div>
+                        ))}
+                      </div>
+
+                      <div className="space-y-3">
+                        {availabilityBoardResources.map((preview) => {
+                          const resource = preview.resource;
+                          const operatingWindowStyle = buildRangeStyle(resource?.availableFrom, resource?.availableTo);
+                          const conflictWindowStyle = buildRangeStyle(preview.conflictStart, preview.conflictEnd);
+                          const isSelected = String(resource?.id) === String(resourceId);
+                          const isAvailable = preview.previewStatus === 'AVAILABLE';
+                          const isOutsideHours = preview.previewStatus === 'OUTSIDE_HOURS';
+                          const isConflict = preview.previewStatus === 'BOOKING_CONFLICT';
+
+                          return (
+                            <div
+                              key={resource.id}
+                              className={`rounded-2xl border p-4 transition-all ${
+                                isSelected
+                                  ? 'border-primary/40 bg-primary/5 shadow-soft'
+                                  : 'border-[var(--color-border)] bg-[var(--color-bg-alt)]/30'
+                              }`}
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                                <div>
+                                  <div className="text-sm font-black text-[var(--color-text)]">{resource.name}</div>
+                                  <div className="text-[10px] font-mono font-bold text-[var(--color-muted)]">
+                                    {resource.resourceCode}
+                                    {resource.building ? ` • ${resource.building}` : ''}
+                                  </div>
+                                </div>
+                                <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-muted)]">
+                                  Bookable Hours {resource.availableFrom || '--:--'} - {resource.availableTo || '--:--'}
+                                </div>
+                              </div>
+
+                              <div className="relative h-12 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] overflow-hidden">
+                                <div className="absolute inset-y-0 left-0 right-0 bg-[linear-gradient(to_right,transparent_0%,transparent_16.66%,rgba(255,255,255,0.06)_16.66%,rgba(255,255,255,0.06)_17.1%,transparent_17.1%,transparent_33.33%,rgba(255,255,255,0.06)_33.33%,rgba(255,255,255,0.06)_33.8%,transparent_33.8%,transparent_50%,rgba(255,255,255,0.06)_50%,rgba(255,255,255,0.06)_50.4%,transparent_50.4%,transparent_66.66%,rgba(255,255,255,0.06)_66.66%,rgba(255,255,255,0.06)_67.1%,transparent_67.1%,transparent_83.33%,rgba(255,255,255,0.06)_83.33%,rgba(255,255,255,0.06)_83.8%,transparent_83.8%,transparent_100%)]" />
+                                <div
+                                  className="absolute top-2 bottom-2 rounded-lg bg-emerald-500/25 border border-emerald-400/30"
+                                  style={operatingWindowStyle}
+                                />
+                                {isConflict && (
+                                  <div
+                                    className="absolute top-2 bottom-2 rounded-lg bg-red-500/25 border border-red-400/30"
+                                    style={conflictWindowStyle}
+                                  />
+                                )}
+                                <div
+                                  className={`absolute top-3 bottom-3 rounded-lg border ${
+                                    isConflict
+                                      ? 'bg-red-500/40 border-red-400/60'
+                                      : isOutsideHours
+                                        ? 'bg-amber-500/40 border-amber-400/60'
+                                        : isSelected
+                                          ? 'bg-primary/45 border-primary/60'
+                                          : 'bg-sky-500/35 border-sky-400/40'
+                                  }`}
+                                  style={requestedSlotStyle}
+                                />
+                              </div>
+
+                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+                                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-emerald-300">
+                                  Room Available
+                                </span>
+                                <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-primary">
+                                  Your Chosen Time
+                                </span>
+                                {isConflict && (
+                                  <span className="inline-flex items-center gap-2 rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-red-300">
+                                    Existing Booking
+                                  </span>
+                                )}
+                                {isSelected && (
+                                  <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-[var(--color-text)]">
+                                    Currently Selected
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className={`mt-3 rounded-xl border px-3 py-3 text-sm font-medium ${
+                                isAvailable
+                                  ? 'border-emerald-400/15 bg-emerald-500/10 text-emerald-300'
+                                  : isConflict
+                                    ? 'border-red-400/15 bg-red-500/10 text-red-300'
+                                    : isOutsideHours
+                                      ? 'border-amber-400/15 bg-amber-500/10 text-amber-300'
+                                      : 'border-[var(--color-border)] bg-[var(--color-bg-alt)]/30 text-[var(--color-text-secondary)]'
+                              }`}>
+                                {preview.previewReason}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-px bg-[var(--color-divider)]" />
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                       <MessageSquare className="w-4 h-4" />
                     </div>
-                    <h3 className="text-sm font-bold text-[var(--color-text)] uppercase tracking-widest">4. Booking Details</h3>
+                    <h3 className="text-sm font-bold text-[var(--color-text)] uppercase tracking-widest">5. Booking Details</h3>
                   </div>
                   <Input
                     label="Purpose of Booking"

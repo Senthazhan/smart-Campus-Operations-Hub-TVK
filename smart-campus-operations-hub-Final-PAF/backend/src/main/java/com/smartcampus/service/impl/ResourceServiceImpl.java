@@ -3,6 +3,8 @@ package com.smartcampus.service.impl;
 import com.smartcampus.dto.request.ResourceCreateRequest;
 import com.smartcampus.dto.request.ResourceUpdateRequest;
 import com.smartcampus.dto.response.ResourceResponse;
+import com.smartcampus.dto.response.ResourceTimeFitPreviewResponse;
+import com.smartcampus.entity.Booking;
 import com.smartcampus.entity.Resource;
 import com.smartcampus.enums.BookingStatus;
 import com.smartcampus.enums.ResourceStatus;
@@ -117,6 +119,56 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
   }
 
   @Override
+  public Page<ResourceTimeFitPreviewResponse> previewTimeFit(
+      String q,
+      ResourceType type,
+      ResourceStatus status,
+      String building,
+      Integer minCapacity,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      String excludeBookingId,
+      Pageable pageable
+  ) {
+    Query query = new Query().with(pageable);
+    List<Criteria> criteriaList = new ArrayList<>();
+
+    if (type != null) {
+      criteriaList.add(Criteria.where("type").is(type));
+    }
+    if (status != null) {
+      criteriaList.add(Criteria.where("status").is(status));
+    }
+    if (building != null && !building.isBlank()) {
+      criteriaList.add(Criteria.where("building").regex(building, "i"));
+    }
+    if (minCapacity != null) {
+      criteriaList.add(Criteria.where("capacity").gte(minCapacity));
+    }
+    if (q != null && !q.isBlank()) {
+      criteriaList.add(new Criteria().orOperator(
+          Criteria.where("name").regex(q, "i"),
+          Criteria.where("resourceCode").regex(q, "i"),
+          Criteria.where("building").regex(q, "i")
+      ));
+    }
+
+    if (!criteriaList.isEmpty()) {
+      query.addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
+    }
+
+    List<Resource> resources = mongoTemplate.find(query, Resource.class);
+    long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Resource.class);
+
+    List<ResourceTimeFitPreviewResponse> previews = resources.stream()
+        .map(resource -> buildPreview(resource, bookingDate, startTime, endTime, excludeBookingId))
+        .toList();
+
+    return new PageImpl<>(previews, pageable, total);
+  }
+
+  @Override
   public ResourceResponse getById(String id) {
     var resource = resourceRepository.findById(id).orElseThrow(() -> new NotFoundException("Resource not found"));
     return resourceMapper.toResponse(resource);
@@ -190,6 +242,68 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
   private boolean isExpiredPending(com.smartcampus.entity.Booking booking) {
     return booking.getStatus() == BookingStatus.PENDING
         && LocalDateTime.of(booking.getBookingDate(), booking.getEndTime()).isBefore(LocalDateTime.now());
+  }
+
+  private ResourceTimeFitPreviewResponse buildPreview(Resource resource, LocalDate bookingDate, LocalTime startTime,
+      LocalTime endTime, String excludeBookingId) {
+    ResourceResponse response = resourceMapper.toResponse(resource);
+
+    if (bookingDate == null || startTime == null || endTime == null) {
+      return new ResourceTimeFitPreviewResponse(
+          response,
+          "SCHEDULE_REQUIRED",
+          "Pick a date and time to evaluate this resource.",
+          false,
+          false,
+          null,
+          null);
+    }
+
+    boolean withinOperatingHours = isWithinAvailabilityWindow(resource, startTime, endTime);
+    Booking conflictingBooking = findConflictingBooking(resource.getId(), bookingDate, startTime, endTime,
+        List.of(BookingStatus.APPROVED, BookingStatus.PENDING), excludeBookingId).orElse(null);
+
+    if (!withinOperatingHours) {
+      return new ResourceTimeFitPreviewResponse(
+          response,
+          "OUTSIDE_HOURS",
+          "Your chosen time is outside this resource's allowed booking hours.",
+          false,
+          false,
+          null,
+          null);
+    }
+
+    if (conflictingBooking != null) {
+      return new ResourceTimeFitPreviewResponse(
+          response,
+          "BOOKING_CONFLICT",
+          "This resource already has a " + conflictingBooking.getStatus() + " booking from "
+              + conflictingBooking.getStartTime() + " to " + conflictingBooking.getEndTime() + ".",
+          true,
+          true,
+          conflictingBooking.getStartTime(),
+          conflictingBooking.getEndTime());
+    }
+
+    return new ResourceTimeFitPreviewResponse(
+        response,
+        "AVAILABLE",
+        "This resource is available for the selected time.",
+        true,
+        false,
+        null,
+        null);
+  }
+
+  private java.util.Optional<Booking> findConflictingBooking(String resourceId, LocalDate bookingDate, LocalTime startTime,
+      LocalTime endTime, List<BookingStatus> statuses, String excludeBookingId) {
+    return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
+        .filter(existing -> excludeBookingId == null || !excludeBookingId.equals(existing.getId()))
+        .filter(existing -> !isExpiredPending(existing))
+        .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
+        .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
+        .findFirst();
   }
 }
 
