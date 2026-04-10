@@ -8,6 +8,7 @@ import { ConfirmModal } from '../components/common/ConfirmModal';
 import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { Badge } from '../components/common/Badge';
+import { Toast } from '../components/common/Toast';
 import {
   Search,
   Info,
@@ -96,6 +97,7 @@ export function BookingRequestPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [bookingNotice, setBookingNotice] = useState({ open: false, title: '', message: '' });
+  const [toast, setToast] = useState({ open: false, title: '', message: '', variant: 'success' });
   const [lastNoticeKey, setLastNoticeKey] = useState('');
 
   const selectedResource = useMemo(
@@ -304,6 +306,10 @@ export function BookingRequestPage() {
     setBookingNotice({ open: true, title, message });
   }
 
+  function openToast(title, message, variant = 'success') {
+    setToast({ open: true, title, message, variant });
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     const validationError = validate();
@@ -329,10 +335,12 @@ export function BookingRequestPage() {
 
       if (isEditMode) {
         await updateBooking(bookingId, payload);
+        openToast('Booking Updated', 'Your pending booking was updated successfully.');
       } else {
         await createBooking(payload);
+        openToast('Booking Submitted', 'Your booking request has been created successfully.');
       }
-      nav('/my-bookings');
+      window.setTimeout(() => nav('/my-bookings'), 500);
     } catch (err) {
       console.error('Booking submission error:', err);
       const message = err?.message || `Failed to ${isEditMode ? 'update' : 'submit'} booking request`;
@@ -817,6 +825,14 @@ export function BookingRequestPage() {
         confirmLabel="OK"
         cancelLabel="Close"
         variant="warning"
+      />
+
+      <Toast
+        open={toast.open}
+        title={toast.title}
+        message={toast.message}
+        variant={toast.variant}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
       />
     </div>
   );
