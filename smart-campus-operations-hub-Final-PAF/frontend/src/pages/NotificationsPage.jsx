@@ -4,12 +4,12 @@ import { listNotifications, markAllNotificationsRead, markNotificationRead } fro
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
+import { Link } from 'react-router-dom';
 import { 
   Bell, 
   CheckCheck, 
   Clock, 
   Inbox, 
-  Info, 
   AlertCircle, 
   CheckCircle2,
   ChevronLeft,
@@ -18,7 +18,9 @@ import {
   MailOpen,
   Filter,
   ShieldCheck,
-  Zap
+  Zap,
+  BookOpen,
+  ArrowRight
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -122,6 +124,33 @@ export function NotificationsPage() {
            {error}
         </Card>
       )}
+
+      {/* e-Books shortcut — separate from alerts; full area lives in sidebar + /e-books */}
+      <Card className="mx-2 overflow-hidden border-primary/25 rounded-[2.5rem] shadow-premium bg-gradient-to-br from-primary/[0.07] to-transparent">
+        <div className="p-8 md:p-10 flex flex-col md:flex-row md:items-center gap-8">
+          <div className="w-20 h-20 rounded-[1.75rem] bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+            <BookOpen className="w-10 h-10" />
+          </div>
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="text-[10px] font-black text-primary uppercase tracking-[0.35em]">
+              Digital library
+            </div>
+            <h3 className="text-xl md:text-2xl font-black tracking-tight text-[var(--color-text)]">
+              e-Books
+            </h3>
+            <p className="text-sm text-[var(--color-muted)] font-medium leading-relaxed max-w-xl">
+              Search and download PDFs, report concerns, or submit materials for admin review. The library is its own section (sidebar → e-Books); this is just a quick link from the alert center.
+            </p>
+          </div>
+          <Link
+            to="/e-books"
+            className="inline-flex items-center justify-center gap-2 h-14 px-8 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-premium hover:opacity-95 transition-opacity shrink-0"
+          >
+            Open e-Books
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </Card>
 
       {/* Control Bar */}
       <div className="flex items-center gap-4 px-2 pb-2 overflow-x-auto no-scrollbar">

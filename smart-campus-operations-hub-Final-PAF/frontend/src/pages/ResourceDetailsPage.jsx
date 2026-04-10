@@ -161,10 +161,10 @@ export function ResourceDetailsPage() {
                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                               <Info className="w-5 h-5" />
                            </div>
-                           <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--color-text)]">Executive Summary</h3>
+                           <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--color-text)]">Disclaimer</h3>
                         </div>
                         <p className="text-lg font-medium text-[var(--color-muted)] leading-relaxed italic">
-                           "{data.description || 'No descriptive metadata has been indexed for this infrastructure asset.'}"
+                           "{data.description || 'This Organization has full authority to reject your request anytime.'}"
                         </p>
                      </div>
                      <StatusIndicator status={STATUS_MAP[data.status] || 'info'} label={data.status} className="scale-110" />
