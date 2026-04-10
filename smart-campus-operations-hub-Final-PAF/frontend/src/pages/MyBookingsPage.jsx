@@ -6,6 +6,7 @@ import { Card } from '../components/common/Card';
 import { StatusIndicator } from '../components/common/StatusIndicator';
 import { ConfirmModal } from '../components/common/ConfirmModal';
 import { Select } from '../components/common/Select';
+import { Toast } from '../components/common/Toast';
 import {
   Calendar,
   CalendarCheck,
@@ -94,6 +95,7 @@ export function MyBookingsPage() {
   const [cancelModal, setCancelModal] = useState({ open: false, id: null });
   const [qrBooking, setQrBooking] = useState(null);
   const [detailBooking, setDetailBooking] = useState(null);
+  const [toast, setToast] = useState({ open: false, title: '', message: '', variant: 'success' });
   const bookingsCacheRef = useRef(new Map());
 
   const filteredBookings = useMemo(() => {
@@ -183,6 +185,12 @@ export function MyBookingsPage() {
           ...current,
           content: current.content.map((booking) => (booking.id === id ? { ...booking, ...updatedBooking } : booking)),
         };
+      });
+      setToast({
+        open: true,
+        title: 'Booking Cancelled',
+        message: 'Your booking has been cancelled successfully.',
+        variant: 'success',
       });
     } catch (e) {
       setError(e?.response?.data?.error?.message || 'Failed to cancel booking');
@@ -715,6 +723,14 @@ export function MyBookingsPage() {
           </Card>
         </div>
       )}
+
+      <Toast
+        open={toast.open}
+        title={toast.title}
+        message={toast.message}
+        variant={toast.variant}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      />
     </div>
   );
 }

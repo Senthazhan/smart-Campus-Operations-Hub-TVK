@@ -6,6 +6,7 @@ import com.smartcampus.dto.response.BookingResponse;
 import com.smartcampus.entity.Booking;
 import com.smartcampus.enums.BookingStatus;
 import com.smartcampus.enums.ResourceStatus;
+import com.smartcampus.enums.ResourceType;
 import com.smartcampus.exception.ConflictException;
 import com.smartcampus.exception.ForbiddenException;
 import com.smartcampus.exception.NotFoundException;
@@ -19,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -52,13 +54,13 @@ public class BookingServiceImpl implements BookingService {
   public BookingResponse create(BookingCreateRequest req) {
     validateBookingRequest(req);
 
+    var user = userRepository.findById(CurrentUser.id())
+        .orElseThrow(() -> new NotFoundException("User not found"));
     var resource = resourceRepository.findById(req.resourceId())
         .orElseThrow(() -> new NotFoundException("Resource not found"));
     ensureResourceCanBeBooked(resource, req.expectedAttendees(), req.startTime(), req.endTime());
+    ensureNoDuplicatePendingRequest(user.getId(), resource.getId(), req.bookingDate(), req.startTime(), req.endTime(), null);
     ensureNoConflicts(resource.getId(), req.bookingDate(), req.startTime(), req.endTime(), null);
-
-    var user = userRepository.findById(CurrentUser.id())
-        .orElseThrow(() -> new NotFoundException("User not found"));
 
     var booking = new Booking();
     booking.setResource(resource);
@@ -102,6 +104,7 @@ public class BookingServiceImpl implements BookingService {
     var resource = resourceRepository.findById(req.resourceId())
         .orElseThrow(() -> new NotFoundException("Resource not found"));
     ensureResourceCanBeBooked(resource, req.expectedAttendees(), req.startTime(), req.endTime());
+    ensureNoDuplicatePendingRequest(booking.getUser().getId(), resource.getId(), req.bookingDate(), req.startTime(), req.endTime(), booking.getId());
     ensureNoConflictsForUpdate(booking, resource.getId(), req.bookingDate(), req.startTime(), req.endTime());
 
     booking.setResource(resource);
@@ -361,6 +364,7 @@ public class BookingServiceImpl implements BookingService {
     if (resource.getAvailableTo() != null && endTime.isAfter(resource.getAvailableTo())) {
       throw new ConflictException("Booking ends after the resource becomes unavailable");
     }
+    applyResourceSpecificBookingRules(resource, expectedAttendees, startTime, endTime);
   }
 
   private void ensureNoConflicts(String resourceId, LocalDate bookingDate, java.time.LocalTime startTime,
@@ -382,6 +386,14 @@ public class BookingServiceImpl implements BookingService {
     }
   }
 
+  private void ensureNoDuplicatePendingRequest(String userId, String resourceId, LocalDate bookingDate,
+      LocalTime startTime, LocalTime endTime, String excludeBookingId) {
+    var duplicatePending = findDuplicatePendingBooking(userId, resourceId, bookingDate, startTime, endTime, excludeBookingId);
+    if (duplicatePending.isPresent()) {
+      throw new ConflictException("You already have a pending booking request for this resource and time slot");
+    }
+  }
+
   private Optional<Booking> findConflictingBooking(String resourceId, LocalDate bookingDate, java.time.LocalTime startTime,
       java.time.LocalTime endTime, List<BookingStatus> statuses, String excludeBookingId) {
     return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
@@ -390,6 +402,30 @@ public class BookingServiceImpl implements BookingService {
         .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
         .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
         .findFirst();
+  }
+
+  private Optional<Booking> findDuplicatePendingBooking(String userId, String resourceId, LocalDate bookingDate,
+      LocalTime startTime, LocalTime endTime, String excludeBookingId) {
+    return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, List.of(BookingStatus.PENDING)).stream()
+        .map(this::expireIfStale)
+        .filter(existing -> excludeBookingId == null || !excludeBookingId.equals(existing.getId()))
+        .filter(existing -> existing.getUser() != null && userId.equals(existing.getUser().getId()))
+        .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
+        .filter(existing -> existing.getStartTime().equals(startTime) && existing.getEndTime().equals(endTime))
+        .findFirst();
+  }
+
+  private void applyResourceSpecificBookingRules(com.smartcampus.entity.Resource resource, int expectedAttendees,
+      LocalTime startTime, LocalTime endTime) {
+    long durationMinutes = ChronoUnit.MINUTES.between(startTime, endTime);
+
+    if (resource.getType() == ResourceType.LAB && expectedAttendees < 2) {
+      throw new ConflictException("Laboratories require at least 2 expected attendees");
+    }
+
+    if (resource.getType() == ResourceType.MEETING_ROOM && durationMinutes > 120) {
+      throw new ConflictException("Meeting rooms can only be booked for up to 2 hours per request");
+    }
   }
 
   private String buildConflictMessage(Booking conflictingBooking) {

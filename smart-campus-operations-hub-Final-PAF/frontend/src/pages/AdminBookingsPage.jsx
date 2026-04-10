@@ -7,6 +7,7 @@ import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { CardLoader } from '../components/common/PageLoader';
 import { Spinner } from '../components/common/Spinner';
+import { Toast } from '../components/common/Toast';
 import { 
   ShieldCheck, 
   Search, 
@@ -47,6 +48,7 @@ export function AdminBookingsPage() {
   const [modal, setModal] = useState(null); // { id, action: 'approve'|'reject' }
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState({ open: false, title: '', message: '', variant: 'success' });
 
   const params = useMemo(() => {
     const p = { page, size: 7 };
@@ -90,6 +92,14 @@ export function AdminBookingsPage() {
     try {
       if (modal.action === 'approve') await approveBooking(modal.id, reason.trim());
       if (modal.action === 'reject') await rejectBooking(modal.id, reason.trim());
+      setToast({
+        open: true,
+        title: modal.action === 'approve' ? 'Booking Approved' : 'Booking Rejected',
+        message: modal.action === 'approve'
+          ? 'The booking request was approved successfully.'
+          : 'The booking request was rejected successfully.',
+        variant: 'success',
+      });
       setModal(null);
       await refresh();
     } catch (e) {
@@ -357,6 +367,14 @@ export function AdminBookingsPage() {
           </Card>
         </div>
       )}
+
+      <Toast
+        open={toast.open}
+        title={toast.title}
+        message={toast.message}
+        variant={toast.variant}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      />
     </div>
   );
 }
