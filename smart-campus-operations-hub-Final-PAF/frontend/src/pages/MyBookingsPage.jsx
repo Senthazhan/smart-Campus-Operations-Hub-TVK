@@ -29,6 +29,7 @@ const STATUS_VARIANTS = {
   APPROVED: 'success',
   REJECTED: 'danger',
   CANCELLED: 'neutral',
+  EXPIRED: 'danger',
   COMPLETED: 'info',
 };
 
@@ -69,15 +70,22 @@ function buildBookingQrUrl(booking) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=${payload}`;
 }
 
-const PAGE_SIZE = 7;
+const PAGE_SIZE = 10;
+const PREFETCHABLE_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED', 'EXPIRED'];
+
+function buildCacheKey(chronology, visibility, statusFilter, page) {
+  return `${chronology}:${visibility}:${statusFilter || 'all-statuses'}:${page}`;
+}
 
 export function MyBookingsPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [chronology, setChronology] = useState('latest');
   const [visibility, setVisibility] = useState('active');
-  const [allBookings, setAllBookings] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [cancelModal, setCancelModal] = useState({ open: false, id: null });
@@ -85,49 +93,63 @@ export function MyBookingsPage() {
   const bookingsCacheRef = useRef(new Map());
 
   const filteredBookings = useMemo(() => {
-    if (visibility === 'cancelled') {
-      return allBookings.filter((booking) => booking.status === 'CANCELLED');
-    }
-    if (visibility === 'all') {
-      return allBookings;
-    }
-    return allBookings.filter((booking) => booking.status !== 'CANCELLED');
-  }, [allBookings, visibility]);
+    return data?.content || [];
+  }, [data]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredBookings.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages - 1);
-  const visibleBookings = useMemo(() => {
-    const startIndex = safePage * PAGE_SIZE;
-    return filteredBookings.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [filteredBookings, safePage]);
+  async function prefetchStatusPages(currentChronology) {
+    const requests = PREFETCHABLE_STATUSES
+      .map((status) => {
+        const key = buildCacheKey(currentChronology, 'all', status, 0);
+        if (bookingsCacheRef.current.has(key)) {
+          return null;
+        }
 
-  useEffect(() => {
-    if (page !== safePage) {
-      setPage(safePage);
-    }
-  }, [page, safePage]);
+        return listBookings({ page: 0, size: PAGE_SIZE, chronology: currentChronology, status })
+          .then((prefetched) => {
+            bookingsCacheRef.current.set(key, prefetched);
+          })
+          .catch(() => {});
+      })
+      .filter(Boolean);
+
+    await Promise.all(requests);
+  }
 
   useEffect(() => {
     let alive = true;
     setError(null);
-    const cacheKey = chronology;
-    const cachedBookings = bookingsCacheRef.current.get(cacheKey);
+    const cacheKey = buildCacheKey(chronology, visibility, statusFilter, page);
+    const cachedPage = bookingsCacheRef.current.get(cacheKey);
 
-    if (cachedBookings) {
-      setAllBookings(cachedBookings);
+    if (cachedPage) {
+      setData(cachedPage);
       setLoading(false);
+      setIsFetching(false);
       return () => {
         alive = false;
       };
     }
 
-    setLoading(true);
-    listBookings({ page: 0, size: 200, chronology })
-      .then((d) => {
+    if (!data) {
+      setLoading(true);
+    } else {
+      setIsFetching(true);
+    }
+    const params = { page, size: PAGE_SIZE, chronology };
+    if (statusFilter) {
+      params.status = statusFilter;
+    } else if (visibility === 'active') {
+      params.excludeStatus = 'CANCELLED';
+    }
+
+    listBookings(params)
+      .then(async (d) => {
         if (!alive) return;
-        const nextBookings = d?.content || [];
-        bookingsCacheRef.current.set(cacheKey, nextBookings);
-        setAllBookings(nextBookings);
+        bookingsCacheRef.current.set(cacheKey, d);
+        setData(d);
+        if (page === 0 && !statusFilter) {
+          await prefetchStatusPages(chronology);
+        }
       })
       .catch((e) => {
         if (!alive) return;
@@ -136,9 +158,10 @@ export function MyBookingsPage() {
       .finally(() => {
         if (!alive) return;
         setLoading(false);
+        setIsFetching(false);
       });
     return () => { alive = false; };
-  }, [chronology]);
+  }, [page, chronology, visibility, statusFilter]);
 
   async function handleCancelConfirm() {
     const id = cancelModal.id;
@@ -150,9 +173,13 @@ export function MyBookingsPage() {
     try {
       const updatedBooking = await cancelBooking(id);
       bookingsCacheRef.current.clear();
-      setAllBookings((current) =>
-        current.map((booking) => (booking.id === id ? { ...booking, ...updatedBooking } : booking)),
-      );
+      setData((current) => {
+        if (!current?.content) return current;
+        return {
+          ...current,
+          content: current.content.map((booking) => (booking.id === id ? { ...booking, ...updatedBooking } : booking)),
+        };
+      });
     } catch (e) {
       setError(e?.response?.data?.error?.message || 'Failed to cancel booking');
     } finally {
@@ -191,7 +218,6 @@ export function MyBookingsPage() {
                 const nextChronology = e.target.value;
                 setChronology(nextChronology);
                 setPage(0);
-                setAllBookings((current) => sortBookingContent(current, nextChronology));
               }}
               options={[
                 { value: 'latest', label: 'Latest to Oldest' },
@@ -204,13 +230,38 @@ export function MyBookingsPage() {
               label="Booking View"
               value={visibility}
               onChange={(e) => {
-                setVisibility(e.target.value);
+                const nextVisibility = e.target.value;
+                setVisibility(nextVisibility);
+                if (nextVisibility === 'active' && statusFilter === 'CANCELLED') {
+                  setStatusFilter('');
+                }
                 setPage(0);
               }}
               options={[
                 { value: 'active', label: 'Hide Cancelled' },
                 { value: 'all', label: 'Show All' },
-                { value: 'cancelled', label: 'Cancelled Only' },
+              ]}
+            />
+          </div>
+          <div className="w-full lg:w-56">
+            <Select
+              label="Status Filter"
+              value={statusFilter}
+              onChange={(e) => {
+                const nextStatus = e.target.value;
+                setStatusFilter(nextStatus);
+                if (nextStatus) {
+                  setVisibility('all');
+                }
+                setPage(0);
+              }}
+              options={[
+                { value: '', label: 'All Statuses' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'APPROVED', label: 'Approved' },
+                { value: 'REJECTED', label: 'Rejected' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'EXPIRED', label: 'Expired' },
               ]}
             />
           </div>
@@ -243,10 +294,15 @@ export function MyBookingsPage() {
 
       {/* Pipeline Content */}
       <Card className="p-0 overflow-hidden border-[var(--color-border)]">
-        {loading && !allBookings.length ? (
+        {loading && !data ? (
           <CardLoader text="Syncing Matrix Records..." />
-        ) : visibleBookings.length ? (
+        ) : filteredBookings.length ? (
           <>
+            {isFetching && (
+              <div className="px-6 py-3 border-b border-[var(--color-border)] bg-primary/5 text-[10px] font-bold uppercase tracking-widest text-[var(--color-muted)]">
+                Updating results...
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -259,7 +315,7 @@ export function MyBookingsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-divider)]">
-                  {visibleBookings.map((b) => (
+                  {filteredBookings.map((b) => (
                     <tr key={b.id} className="group hover:bg-[var(--color-surface-soft)] transition-all">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
@@ -361,13 +417,13 @@ export function MyBookingsPage() {
             {/* Pagination Matrix */}
             <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-bg-alt)]/20 flex items-center justify-between">
                <div className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">
-                  Log Index {safePage + 1} of {totalPages}
+                  Log Index {(data?.number ?? 0) + 1} of {data?.totalPages || 1}
                </div>
                <div className="flex gap-2">
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    disabled={safePage === 0} 
+                    disabled={data?.first} 
                     onClick={() => setPage(p => p - 1)}
                     className="h-8 w-8 p-0 rounded-lg"
                   >
@@ -376,7 +432,7 @@ export function MyBookingsPage() {
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    disabled={safePage >= totalPages - 1} 
+                    disabled={data?.last} 
                     onClick={() => setPage(p => p + 1)}
                     className="h-8 w-8 p-0 rounded-lg"
                   >

@@ -24,6 +24,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.support.PageableExecutionUtils;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -170,6 +171,7 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
       List<BookingStatus> statuses, String excludeBookingId) {
     return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
         .filter(existing -> excludeBookingId == null || !excludeBookingId.equals(existing.getId()))
+        .filter(existing -> !isExpiredPending(existing))
         .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
         .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
         .count();
@@ -183,6 +185,11 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
       return false;
     }
     return true;
+  }
+
+  private boolean isExpiredPending(com.smartcampus.entity.Booking booking) {
+    return booking.getStatus() == BookingStatus.PENDING
+        && LocalDateTime.of(booking.getBookingDate(), booking.getEndTime()).isBefore(LocalDateTime.now());
   }
 }
 

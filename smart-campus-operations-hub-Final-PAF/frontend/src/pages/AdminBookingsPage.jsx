@@ -30,6 +30,7 @@ const STATUS_VARIANTS = {
   APPROVED: 'success',
   REJECTED: 'error',
   CANCELLED: 'neutral',
+  EXPIRED: 'error',
 };
 
 export function AdminBookingsPage() {
@@ -145,6 +146,7 @@ export function AdminBookingsPage() {
                 { value: 'APPROVED', label: 'Approved' },
                 { value: 'REJECTED', label: 'Rejected' },
                 { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'EXPIRED', label: 'Expired' },
               ]}
             />
             <Input
