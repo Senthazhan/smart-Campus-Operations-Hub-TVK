@@ -40,6 +40,7 @@ public class BookingController {
   public ResponseEntity<ApiResponse<Page<BookingResponse>>> list(
       @RequestParam(required = false) String q,
       @RequestParam(required = false) BookingStatus status,
+      @RequestParam(required = false) BookingStatus excludeStatus,
       @RequestParam(required = false) String resourceId,
       @RequestParam(required = false) LocalDate from,
       @RequestParam(required = false) LocalDate to,
@@ -48,7 +49,7 @@ public class BookingController {
       HttpServletRequest req
   ) {
     return ResponseEntity.ok(
-        ApiResponse.ok(req.getRequestURI(), bookingService.list(q, status, resourceId, from, to, chronology, pageable)));
+        ApiResponse.ok(req.getRequestURI(), bookingService.list(q, status, resourceId, from, to, excludeStatus, chronology, pageable)));
   }
 
   @GetMapping("/{id}")

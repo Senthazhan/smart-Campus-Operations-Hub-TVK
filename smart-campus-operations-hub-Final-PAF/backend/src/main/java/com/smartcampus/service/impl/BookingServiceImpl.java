@@ -17,6 +17,7 @@ import com.smartcampus.security.CurrentUser;
 import com.smartcampus.service.BookingService;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -34,6 +35,7 @@ import org.springframework.data.support.PageableExecutionUtils;
 import org.bson.types.ObjectId;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -86,6 +88,7 @@ public class BookingServiceImpl implements BookingService {
     validateBookingRequest(req);
 
     var booking = bookingRepository.findById(id).orElseThrow(() -> new NotFoundException("Booking not found"));
+    booking = expireIfStale(booking);
     boolean isAdmin = CurrentUser.requireAuth().getAuthorities().stream()
         .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     boolean isOwner = booking.getUser().getId().equals(CurrentUser.id());
@@ -116,7 +119,8 @@ public class BookingServiceImpl implements BookingService {
 
   @Override
   public Page<BookingResponse> list(String q, BookingStatus status, String resourceId, LocalDate from, LocalDate to,
-      String chronology, Pageable pageable) {
+      BookingStatus excludeStatus, String chronology, Pageable pageable) {
+    expireStalePendingBookings();
     Authentication auth = CurrentUser.requireAuth();
     boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
@@ -126,6 +130,8 @@ public class BookingServiceImpl implements BookingService {
     List<Criteria> bookingCriteria = new ArrayList<>();
     if (status != null)
       bookingCriteria.add(Criteria.where("status").is(status));
+    if (excludeStatus != null)
+      bookingCriteria.add(Criteria.where("status").ne(excludeStatus));
     if (resourceId != null) {
       if (ObjectId.isValid(resourceId))
         bookingCriteria.add(Criteria.where("resource").is(new ObjectId(resourceId)));
@@ -173,6 +179,7 @@ public class BookingServiceImpl implements BookingService {
 
     List<Booking> results = mongoTemplate.aggregate(Aggregation.newAggregation(ops), Booking.class, Booking.class)
         .getMappedResults();
+    results = results.stream().map(this::expireIfStale).toList();
 
     // Count for pagination (using a simpler aggregation)
     List<AggregationOperation> countOps = new ArrayList<>();
@@ -205,6 +212,7 @@ public class BookingServiceImpl implements BookingService {
   @Override
   public BookingResponse get(String id) {
     var booking = bookingRepository.findById(id).orElseThrow(() -> new NotFoundException("Booking not found"));
+    booking = expireIfStale(booking);
     enforceOwnerOrAdmin(booking);
     return bookingMapper.toResponse(booking);
   }
@@ -212,20 +220,21 @@ public class BookingServiceImpl implements BookingService {
   @Override
   public BookingResponse approve(String id, BookingDecisionRequest req) {
     var booking = bookingRepository.findById(id).orElseThrow(() -> new NotFoundException("Booking not found"));
+    booking = expireIfStale(booking);
     ensureAdmin();
     if (booking.getStatus() != BookingStatus.PENDING) {
       throw new ConflictException("Only PENDING bookings can be approved");
     }
 
-    long conflicts = countConflicts(
+    var conflictingBooking = findConflictingBooking(
         booking.getResource().getId(),
         booking.getBookingDate(),
         booking.getStartTime(),
         booking.getEndTime(),
         List.of(BookingStatus.APPROVED),
         null);
-    if (conflicts > 0) {
-      throw new ConflictException("Cannot approve due to an existing approved booking conflict");
+    if (conflictingBooking.isPresent()) {
+      throw new ConflictException(buildApprovalConflictMessage(conflictingBooking.get()));
     }
 
     var admin = userRepository.findById(CurrentUser.id())
@@ -251,6 +260,7 @@ public class BookingServiceImpl implements BookingService {
   @Override
   public BookingResponse reject(String id, BookingDecisionRequest req) {
     var booking = bookingRepository.findById(id).orElseThrow(() -> new NotFoundException("Booking not found"));
+    booking = expireIfStale(booking);
     ensureAdmin();
     if (booking.getStatus() != BookingStatus.PENDING) {
       throw new ConflictException("Only PENDING bookings can be rejected");
@@ -279,6 +289,7 @@ public class BookingServiceImpl implements BookingService {
   @Override
   public BookingResponse cancel(String id) {
     var booking = bookingRepository.findById(id).orElseThrow(() -> new NotFoundException("Booking not found"));
+    booking = expireIfStale(booking);
     boolean isAdmin = CurrentUser.requireAuth().getAuthorities().stream()
         .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     boolean isOwner = booking.getUser().getId().equals(CurrentUser.id());
@@ -354,30 +365,67 @@ public class BookingServiceImpl implements BookingService {
 
   private void ensureNoConflicts(String resourceId, LocalDate bookingDate, java.time.LocalTime startTime,
       java.time.LocalTime endTime, String excludeBookingId) {
-    long conflicts = countConflicts(resourceId, bookingDate, startTime, endTime,
+    var conflictingBooking = findConflictingBooking(resourceId, bookingDate, startTime, endTime,
         List.of(BookingStatus.APPROVED, BookingStatus.PENDING), excludeBookingId);
-    if (conflicts > 0) {
-      throw new ConflictException("Booking conflict for the selected time window");
+    if (conflictingBooking.isPresent()) {
+      throw new ConflictException(buildConflictMessage(conflictingBooking.get()));
     }
   }
 
   private void ensureNoConflictsForUpdate(Booking booking, String resourceId, LocalDate bookingDate,
       java.time.LocalTime startTime, java.time.LocalTime endTime) {
-    long conflicts = countConflicts(resourceId, bookingDate, startTime, endTime,
+    var conflictingBooking = findConflictingBooking(resourceId, bookingDate, startTime, endTime,
         List.of(BookingStatus.APPROVED, BookingStatus.PENDING), booking.getId());
 
-    if (conflicts > 0) {
-      throw new ConflictException("Booking conflict for the selected time window");
+    if (conflictingBooking.isPresent()) {
+      throw new ConflictException(buildConflictMessage(conflictingBooking.get()));
     }
   }
 
-  private long countConflicts(String resourceId, LocalDate bookingDate, java.time.LocalTime startTime,
+  private Optional<Booking> findConflictingBooking(String resourceId, LocalDate bookingDate, java.time.LocalTime startTime,
       java.time.LocalTime endTime, List<BookingStatus> statuses, String excludeBookingId) {
     return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
+        .map(this::expireIfStale)
         .filter(existing -> excludeBookingId == null || !excludeBookingId.equals(existing.getId()))
         .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
         .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
-        .count();
+        .findFirst();
+  }
+
+  private String buildConflictMessage(Booking conflictingBooking) {
+    String resourceLabel = conflictingBooking.getResource() == null
+        ? "the selected resource"
+        : conflictingBooking.getResource().getName() + " (" + conflictingBooking.getResource().getResourceCode() + ")";
+    return "The selected slot conflicts with an existing " + conflictingBooking.getStatus()
+        + " booking for " + resourceLabel + " on " + conflictingBooking.getBookingDate()
+        + " from " + conflictingBooking.getStartTime() + " to " + conflictingBooking.getEndTime();
+  }
+
+  private String buildApprovalConflictMessage(Booking conflictingBooking) {
+    return "Cannot approve because " + buildConflictMessage(conflictingBooking).replaceFirst("^The selected slot conflicts with ", "");
+  }
+
+  private Booking expireIfStale(Booking booking) {
+    if (booking.getStatus() != BookingStatus.PENDING) {
+      return booking;
+    }
+    LocalDateTime bookingEnd = LocalDateTime.of(booking.getBookingDate(), booking.getEndTime());
+    if (!bookingEnd.isBefore(LocalDateTime.now())) {
+      return booking;
+    }
+
+    booking.setStatus(BookingStatus.EXPIRED);
+    if (booking.getDecisionReason() == null || booking.getDecisionReason().isBlank()) {
+      booking.setDecisionReason("Booking request expired before approval.");
+    }
+    booking.setUpdatedAt(Instant.now());
+    return bookingRepository.save(booking);
+  }
+
+  private void expireStalePendingBookings() {
+    bookingRepository.findAllByStatus(BookingStatus.PENDING).stream()
+        .filter(booking -> LocalDateTime.of(booking.getBookingDate(), booking.getEndTime()).isBefore(LocalDateTime.now()))
+        .forEach(this::expireIfStale);
   }
 
   private Sort resolveBookingSort(String chronology) {
