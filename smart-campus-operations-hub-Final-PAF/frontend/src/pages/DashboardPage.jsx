@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getAdminAnalytics, getUserAnalytics } from '../api/analyticsApi';
+import { listEbooks, listEbookReports, pendingEbookSubmissions } from '../api/ebooksApi';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
@@ -21,7 +22,10 @@ import {
   Sparkles,
   RefreshCw,
   MoreVertical,
-  BarChart3
+  BarChart3,
+  BookOpen,
+  Flag,
+  UploadCloud
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -44,6 +48,7 @@ export function DashboardPage() {
   const [range, setRange] = useState(7);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [ebookStats, setEbookStats] = useState({ totalBooks: 0, totalReports: 0, pendingUploads: 0 });
 
   // Sri Lanka Standard Time (UTC+5:30) greeting
   const hour = parseInt(
@@ -58,6 +63,19 @@ export function DashboardPage() {
       const d = isAdmin ? await getAdminAnalytics(range) : await getUserAnalytics();
       console.log('Dashboard Analytics Data:', d);
       setData(d);
+
+      if (isAdmin) {
+        const [books, reports, pending] = await Promise.all([
+          listEbooks({ page: 0, size: 1 }),
+          listEbookReports({ page: 0, size: 1 }),
+          pendingEbookSubmissions({ page: 0, size: 1 })
+        ]);
+        setEbookStats({
+          totalBooks: books?.totalElements ?? books?.content?.length ?? 0,
+          totalReports: reports?.totalElements ?? reports?.content?.length ?? 0,
+          pendingUploads: pending?.totalElements ?? pending?.content?.length ?? 0
+        });
+      }
     } catch (e) {
       setError(e?.response?.data?.error?.message || 'Failed to load analytics');
     } finally {
@@ -183,18 +201,18 @@ export function DashboardPage() {
               gradientClass="bg-primary"
             />
             <StatCard 
-              title="Active Flows" 
-              value={isAdmin ? data.pendingBookings : data.activeBookings} 
+              title="e-Books" 
+              value={ebookStats.totalBooks} 
               trend={0} 
-              icon={CalendarDays} 
+              icon={BookOpen} 
               colorClass="bg-warning/10 text-warning border-warning/20"
               gradientClass="bg-warning"
             />
             <StatCard 
-              title="Critical Events" 
-              value={data.openTickets} 
+              title="User Reports" 
+              value={ebookStats.totalReports} 
               trend={0} 
-              icon={Ticket} 
+              icon={Flag} 
               colorClass="bg-error/10 text-error border-error/20"
               gradientClass="bg-error"
             />
@@ -373,50 +391,55 @@ export function DashboardPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            {/* Recent Bookings Feed */}
+            {/* e-Books Activity Feed */}
             <div className="card-premium overflow-hidden p-0">
                <div className="p-6 border-b border-[var(--color-border)] flex items-center justify-between bg-[var(--color-bg-alt)]/30">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center border border-primary/20"><CalendarDays className="w-5 h-5" /></div>
+                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center border border-primary/20"><BookOpen className="w-5 h-5" /></div>
                     <div>
-                      <h3 className="text-base font-black text-[var(--color-text)] tracking-tight italic">Booking Delta</h3>
-                      <p className="text-[9px] font-black text-[var(--color-muted)] uppercase tracking-widest mt-0.5">Approved Transactions</p>
+                      <h3 className="text-base font-black text-[var(--color-text)] tracking-tight italic">e-Book Activity</h3>
+                      <p className="text-[9px] font-black text-[var(--color-muted)] uppercase tracking-widest mt-0.5">Uploads & Reports</p>
                     </div>
                   </div>
                   <Badge variant="primary">LIVE STREAM</Badge>
                </div>
                
                <div className="divide-y divide-[var(--color-border)]">
-                  {(data.bookingsByStatus || []).length > 0 ? data.bookingsByStatus.slice(0, 4).map((x, i) => (
-                    <div key={i} className="flex items-center justify-between p-5 hover:bg-[var(--color-primary-soft)] transition-colors duration-300 cursor-pointer group/row">
+                  {[
+                    { label: 'Library titles', count: ebookStats.totalBooks, icon: BookOpen, status: 'info' },
+                    { label: 'Pending uploads', count: ebookStats.pendingUploads, icon: UploadCloud, status: 'warning' },
+                    { label: 'User reports', count: ebookStats.totalReports, icon: Flag, status: 'danger' }
+                  ].map((x, i) => {
+                    const Icon = x.icon;
+                    return (
+                      <div key={x.label} className="flex items-center justify-between p-5 hover:bg-[var(--color-primary-soft)] transition-colors duration-300 cursor-pointer group/row">
                         <div className="flex items-center gap-4">
-                           <div className="w-10 h-10 rounded-xl bg-[var(--color-bg-alt)] flex items-center justify-center font-black text-xs text-primary border border-[var(--color-border)] group-hover/row:border-primary/30 transition-all">#{i+1}</div>
-                           <div>
-                              <div className="text-sm font-black text-[var(--color-text)] tracking-tight uppercase tracking-tighter">{x.label}</div>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                 <Clock className="w-3.5 h-3.5 text-[var(--color-muted)]" />
-                                 <span className="text-[10px] font-black text-[var(--color-muted)] uppercase tracking-widest">Modified: 2m ago</span>
-                              </div>
-                           </div>
+                          <div className="w-10 h-10 rounded-xl bg-[var(--color-bg-alt)] flex items-center justify-center text-primary border border-[var(--color-border)] group-hover/row:border-primary/30 transition-all">
+                            <Icon className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-black text-[var(--color-text)] tracking-tight uppercase tracking-tighter">{x.label}</div>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Clock className="w-3.5 h-3.5 text-[var(--color-muted)]" />
+                              <span className="text-[10px] font-black text-[var(--color-muted)] uppercase tracking-widest">Updated: just now</span>
+                            </div>
+                          </div>
                         </div>
                         <div className="flex items-center gap-3">
-                           <div className="text-lg font-black text-primary">{x.count}</div>
-                           <StatusIndicator status={x.label === 'APPROVED' ? 'success' : 'warning'} />
+                          <div className="text-lg font-black text-primary">{x.count}</div>
+                          <StatusIndicator status={x.status} />
                         </div>
-                    </div>
-                  )) : (
-                    <div className="py-20 text-center text-[var(--color-muted)] italic font-bold opacity-30">
-                      NULL_FLOW_DETECTED
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })}
                </div>
                
                <Button 
                 variant="ghost" 
                 className="w-full h-14 text-[10px] font-black uppercase tracking-[0.2em] justify-between rounded-none border-t border-[var(--color-border)] hover:bg-[var(--color-bg-alt)] mt-auto"
-                onClick={() => navigate(isAdmin ? '/admin/bookings' : '/my-bookings')}
+                onClick={() => navigate('/admin/e-books')}
               >
-                Access History Vault <ChevronRight className="w-4 h-4 ml-1" />
+                Open e-Books Console <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
 
@@ -426,7 +449,7 @@ export function DashboardPage() {
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-error/10 text-error rounded-xl flex items-center justify-center border border-error/20"><Activity className="w-5 h-5" /></div>
                     <div>
-                      <h3 className="text-base font-black text-[var(--color-text)] tracking-tight italic">Entropy Alerts</h3>
+                      <h3 className="text-base font-black text-[var(--color-text)] tracking-tight italic">Critical Events</h3>
                       <p className="text-[9px] font-black text-[var(--color-muted)] uppercase tracking-widest mt-0.5">High Priority Log</p>
                     </div>
                   </div>
