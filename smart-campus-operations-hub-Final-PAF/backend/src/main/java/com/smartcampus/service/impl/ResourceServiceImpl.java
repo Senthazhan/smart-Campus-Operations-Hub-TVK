@@ -3,24 +3,31 @@ package com.smartcampus.service.impl;
 import com.smartcampus.dto.request.ResourceCreateRequest;
 import com.smartcampus.dto.request.ResourceUpdateRequest;
 import com.smartcampus.dto.response.ResourceResponse;
+import com.smartcampus.dto.response.ResourceTimeFitPreviewResponse;
+import com.smartcampus.entity.Booking;
 import com.smartcampus.entity.Resource;
+import com.smartcampus.enums.BookingStatus;
 import com.smartcampus.enums.ResourceStatus;
 import com.smartcampus.enums.ResourceType;
 import com.smartcampus.exception.ConflictException;
 import com.smartcampus.exception.NotFoundException;
 import com.smartcampus.mapper.ResourceMapper;
+import com.smartcampus.repository.BookingRepository;
 import com.smartcampus.repository.ResourceRepository;
 import com.smartcampus.security.CurrentUser;
-import com.smartcampus.security.CurrentUser;
+import com.smartcampus.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.support.PageableExecutionUtils;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +38,8 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
   private final ResourceRepository resourceRepository;
   private final ResourceMapper resourceMapper;
   private final MongoTemplate mongoTemplate;
+  private final BookingRepository bookingRepository;
+  private final FileStorageService fileStorageService;
 
   @Override
   public Page<ResourceResponse> search(
@@ -39,14 +48,89 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
       ResourceStatus status,
       String building,
       Integer minCapacity,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      String excludeBookingId,
       Pageable pageable
   ) {
-    Authentication auth = CurrentUser.requireAuth();
-    boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-    if (!isAdmin) {
-      status = ResourceStatus.ACTIVE;
+    boolean hasAvailabilityWindow = bookingDate != null && startTime != null && endTime != null;
+    Query query = new Query();
+    if (!hasAvailabilityWindow) {
+      query.with(pageable);
+    }
+    List<Criteria> criteriaList = new ArrayList<>();
+
+    if (type != null) {
+      criteriaList.add(Criteria.where("type").is(type));
+    }
+    if (status != null) {
+      criteriaList.add(Criteria.where("status").is(status));
+    }
+    if (building != null && !building.isBlank()) {
+      criteriaList.add(Criteria.where("building").regex(building, "i"));
+    }
+    if (minCapacity != null) {
+      criteriaList.add(Criteria.where("capacity").gte(minCapacity));
+    }
+    if (q != null && !q.isBlank()) {
+      criteriaList.add(new Criteria().orOperator(
+          Criteria.where("name").regex(q, "i"),
+          Criteria.where("resourceCode").regex(q, "i"),
+          Criteria.where("building").regex(q, "i")
+      ));
     }
 
+    if (!criteriaList.isEmpty()) {
+      query.addCriteria(new Criteria().andOperator(criteriaList.toArray(new Criteria[0])));
+    }
+
+    List<Resource> resources = mongoTemplate.find(query, Resource.class);
+
+    if (hasAvailabilityWindow) {
+      resources = resources.stream()
+          .filter(resource -> isWithinAvailabilityWindow(resource, startTime, endTime))
+          .filter(resource -> countConflicts(
+              resource.getId(),
+              bookingDate,
+              startTime,
+              endTime,
+              List.of(BookingStatus.APPROVED, BookingStatus.PENDING),
+              excludeBookingId) == 0)
+          .toList();
+
+      int startIndex = (int) pageable.getOffset();
+      int endIndex = Math.min(startIndex + pageable.getPageSize(), resources.size());
+      List<Resource> pagedResources = startIndex >= resources.size()
+          ? List.of()
+          : resources.subList(startIndex, endIndex);
+
+      return new PageImpl<>(
+          pagedResources.stream().map(resourceMapper::toResponse).toList(),
+          pageable,
+          resources.size());
+    }
+
+    return PageableExecutionUtils.getPage(
+        resources,
+        pageable,
+        () -> mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Resource.class)
+    ).map(resourceMapper::toResponse);
+  }
+
+  @Override
+  public Page<ResourceTimeFitPreviewResponse> previewTimeFit(
+      String q,
+      ResourceType type,
+      ResourceStatus status,
+      String building,
+      Integer minCapacity,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      String excludeBookingId,
+      Pageable pageable
+  ) {
     Query query = new Query().with(pageable);
     List<Criteria> criteriaList = new ArrayList<>();
 
@@ -75,22 +159,18 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
     }
 
     List<Resource> resources = mongoTemplate.find(query, Resource.class);
-    return PageableExecutionUtils.getPage(
-        resources,
-        pageable,
-        () -> mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Resource.class)
-    ).map(resourceMapper::toResponse);
+    long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Resource.class);
+
+    List<ResourceTimeFitPreviewResponse> previews = resources.stream()
+        .map(resource -> buildPreview(resource, bookingDate, startTime, endTime, excludeBookingId))
+        .toList();
+
+    return new PageImpl<>(previews, pageable, total);
   }
 
   @Override
   public ResourceResponse getById(String id) {
-    Authentication auth = CurrentUser.requireAuth();
-    boolean isAdmin = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-
     var resource = resourceRepository.findById(id).orElseThrow(() -> new NotFoundException("Resource not found"));
-    if (!isAdmin && resource.getStatus() != ResourceStatus.ACTIVE) {
-      throw new NotFoundException("Resource not found");
-    }
     return resourceMapper.toResponse(resource);
   }
 
@@ -121,11 +201,109 @@ public class ResourceServiceImpl implements com.smartcampus.service.ResourceServ
   }
 
   @Override
+  public ResourceResponse uploadImage(String id, org.springframework.web.multipart.MultipartFile file) {
+    var entity = resourceRepository.findById(id).orElseThrow(() -> new NotFoundException("Resource not found"));
+    var storedFile = fileStorageService.storeResourceImage(entity.getId(), file);
+    String imageUrl = "/api/v1/files/resources/" + entity.getId() + "/" + storedFile.storedFileName();
+    entity.setImageUrl(imageUrl);
+    entity.setUpdatedBy(CurrentUser.id());
+    entity = resourceRepository.save(entity);
+    return resourceMapper.toResponse(entity);
+  }
+
+  @Override
   public void delete(String id) {
     if (!resourceRepository.existsById(id)) {
       throw new NotFoundException("Resource not found");
     }
     resourceRepository.deleteById(id);
+  }
+
+  private long countConflicts(String resourceId, LocalDate bookingDate, LocalTime startTime, LocalTime endTime,
+      List<BookingStatus> statuses, String excludeBookingId) {
+    return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
+        .filter(existing -> excludeBookingId == null || !excludeBookingId.equals(existing.getId()))
+        .filter(existing -> !isExpiredPending(existing))
+        .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
+        .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
+        .count();
+  }
+
+  private boolean isWithinAvailabilityWindow(Resource resource, LocalTime startTime, LocalTime endTime) {
+    if (resource.getAvailableFrom() != null && startTime.isBefore(resource.getAvailableFrom())) {
+      return false;
+    }
+    if (resource.getAvailableTo() != null && endTime.isAfter(resource.getAvailableTo())) {
+      return false;
+    }
+    return true;
+  }
+
+  private boolean isExpiredPending(com.smartcampus.entity.Booking booking) {
+    return booking.getStatus() == BookingStatus.PENDING
+        && LocalDateTime.of(booking.getBookingDate(), booking.getEndTime()).isBefore(LocalDateTime.now());
+  }
+
+  private ResourceTimeFitPreviewResponse buildPreview(Resource resource, LocalDate bookingDate, LocalTime startTime,
+      LocalTime endTime, String excludeBookingId) {
+    ResourceResponse response = resourceMapper.toResponse(resource);
+
+    if (bookingDate == null || startTime == null || endTime == null) {
+      return new ResourceTimeFitPreviewResponse(
+          response,
+          "SCHEDULE_REQUIRED",
+          "Pick a date and time to evaluate this resource.",
+          false,
+          false,
+          null,
+          null);
+    }
+
+    boolean withinOperatingHours = isWithinAvailabilityWindow(resource, startTime, endTime);
+    Booking conflictingBooking = findConflictingBooking(resource.getId(), bookingDate, startTime, endTime,
+        List.of(BookingStatus.APPROVED, BookingStatus.PENDING), excludeBookingId).orElse(null);
+
+    if (!withinOperatingHours) {
+      return new ResourceTimeFitPreviewResponse(
+          response,
+          "OUTSIDE_HOURS",
+          "Your chosen time is outside this resource's allowed booking hours.",
+          false,
+          false,
+          null,
+          null);
+    }
+
+    if (conflictingBooking != null) {
+      return new ResourceTimeFitPreviewResponse(
+          response,
+          "BOOKING_CONFLICT",
+          "This resource already has a " + conflictingBooking.getStatus() + " booking from "
+              + conflictingBooking.getStartTime() + " to " + conflictingBooking.getEndTime() + ".",
+          true,
+          true,
+          conflictingBooking.getStartTime(),
+          conflictingBooking.getEndTime());
+    }
+
+    return new ResourceTimeFitPreviewResponse(
+        response,
+        "AVAILABLE",
+        "This resource is available for the selected time.",
+        true,
+        false,
+        null,
+        null);
+  }
+
+  private java.util.Optional<Booking> findConflictingBooking(String resourceId, LocalDate bookingDate, LocalTime startTime,
+      LocalTime endTime, List<BookingStatus> statuses, String excludeBookingId) {
+    return bookingRepository.findAllByBookingDateAndStatusIn(bookingDate, statuses).stream()
+        .filter(existing -> excludeBookingId == null || !excludeBookingId.equals(existing.getId()))
+        .filter(existing -> !isExpiredPending(existing))
+        .filter(existing -> existing.getResource() != null && resourceId.equals(existing.getResource().getId()))
+        .filter(existing -> existing.getStartTime().isBefore(endTime) && existing.getEndTime().isAfter(startTime))
+        .findFirst();
   }
 }
 

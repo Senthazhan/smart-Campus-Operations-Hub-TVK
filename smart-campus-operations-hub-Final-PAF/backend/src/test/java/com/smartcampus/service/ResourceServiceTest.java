@@ -12,6 +12,8 @@ import com.smartcampus.mapper.ResourceMapper;
 import com.smartcampus.repository.ResourceRepository;
 import com.smartcampus.security.CurrentUser;
 import com.smartcampus.service.impl.ResourceServiceImpl;
+import com.smartcampus.repository.BookingRepository;
+import com.smartcampus.util.FileStorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,10 +23,9 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -43,6 +44,12 @@ public class ResourceServiceTest {
 
     @Mock
     private MongoTemplate mongoTemplate;
+
+  @Mock
+  private BookingRepository bookingRepository;
+
+  @Mock
+  private FileStorageService fileStorageService;
 
     @InjectMocks
     private ResourceServiceImpl resourceService;
@@ -63,18 +70,18 @@ public class ResourceServiceTest {
     void createResource_Success() {
         // Arrange
         ResourceCreateRequest request = new ResourceCreateRequest(
-                "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", 30,
-                "Science Block", "1st Floor", "101", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE
+                "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", null, 30,
+                "Science Block", "1st Floor", "101", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         Resource entity = new Resource();
         entity.setResourceCode("LAB-001");
 
         ResourceResponse response = new ResourceResponse(
-                "id-123", "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", 30,
-                "Science Block", "1st Floor", "101", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE, null, null, "user-1", "user-1"
+                "id-123", "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", null, 30,
+                "Science Block", "1st Floor", "101", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE, null, null, "user-1", "user-1"
         );
 
         when(resourceRepository.findByResourceCode("LAB-001")).thenReturn(Optional.empty());
@@ -97,9 +104,9 @@ public class ResourceServiceTest {
     void createResource_Conflict_ThrowsException() {
         // Arrange
         ResourceCreateRequest request = new ResourceCreateRequest(
-                "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", 30,
-                "Science Block", "1st Floor", "101", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE
+                "Laboratory A", "LAB-001", ResourceType.LAB, "Main Lab", null, 30,
+                "Science Block", "1st Floor", "101", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         when(resourceRepository.findByResourceCode("LAB-001")).thenReturn(Optional.of(new Resource()));
@@ -113,10 +120,6 @@ public class ResourceServiceTest {
     void getResourceById_NotFound_ThrowsException() {
         // Arrange
         String id = "invalid-id";
-        Authentication auth = mock(Authentication.class);
-        doReturn(Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))).when(auth).getAuthorities();
-        currentUserMockedStatic.when(CurrentUser::requireAuth).thenReturn(auth);
-        
         when(resourceRepository.findById(id)).thenReturn(Optional.empty());
 
         // Act & Assert
@@ -128,9 +131,9 @@ public class ResourceServiceTest {
         // Arrange
         String id = "id-123";
         ResourceUpdateRequest request = new ResourceUpdateRequest(
-                "Updated Lab", "LAB-001", ResourceType.LAB, "Updated Desc", 40,
-                "Science Block", "2nd Floor", "202", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE
+                "Updated Lab", "LAB-001", ResourceType.LAB, "Updated Desc", null, 40,
+                "Science Block", "2nd Floor", "202", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE
         );
 
         Resource existingEntity = new Resource();
@@ -138,9 +141,9 @@ public class ResourceServiceTest {
         existingEntity.setResourceCode("LAB-001");
 
         ResourceResponse response = new ResourceResponse(
-                id, "Updated Lab", "LAB-001", ResourceType.LAB, "Updated Desc", 40,
-                "Science Block", "2nd Floor", "202", "{}", Collections.emptyList(),
-                LocalDate.now(), ResourceStatus.ACTIVE, null, null, "user-1", "user-1"
+                id, "Updated Lab", "LAB-001", ResourceType.LAB, "Updated Desc", null, 40,
+                "Science Block", "2nd Floor", "202", "{}",
+                LocalTime.of(8, 0), LocalTime.of(17, 0), Collections.emptyList(), LocalDate.now(), ResourceStatus.ACTIVE, null, null, "user-1", "user-1"
         );
 
         when(resourceRepository.findById(id)).thenReturn(Optional.of(existingEntity));

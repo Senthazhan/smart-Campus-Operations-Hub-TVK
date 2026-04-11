@@ -5,6 +5,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,6 +28,8 @@ public class Resource {
 
   private String description;
 
+  private String imageUrl;
+
   private int capacity;
 
   private String building;
@@ -36,6 +39,10 @@ public class Resource {
   private String roomNumber;
 
   private String availabilityJson;
+
+  private LocalTime availableFrom;
+
+  private LocalTime availableTo;
 
   private List<String> availableEquipment;
 

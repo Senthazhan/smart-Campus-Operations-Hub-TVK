@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   listResources,
   createResource,
@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { ConfirmModal } from "../components/common/ConfirmModal";
 import { CardLoader } from '../components/common/PageLoader';
+import clsx from "clsx";
 
 export function AdminResourcesPage() {
   const [data, setData] = useState(null);
@@ -33,14 +34,20 @@ export function AdminResourcesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingResource, setEditingResource] = useState(null);
   const [deleteModal, setDeleteModal] = useState({ open: false, id: null });
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     resourceCode: "",
     type: "MEETING_ROOM",
     description: "",
+    imageUrl: "",
     building: "",
     floor: "",
     roomNumber: "",
+    availableFrom: "08:00",
+    availableTo: "17:00",
     capacity: 0,
     status: "ACTIVE",
     availableEquipment: "",
@@ -68,14 +75,18 @@ export function AdminResourcesPage() {
   const handleOpenModal = (resource = null) => {
     if (resource) {
       setEditingResource(resource);
+      setImagePreviewUrl("");
       setFormData({
         name: resource.name,
         resourceCode: resource.resourceCode || "",
         type: resource.type,
         description: resource.description,
+        imageUrl: resource.imageUrl || "",
         building: resource.building || "",
         floor: resource.floor || "",
         roomNumber: resource.roomNumber || "",
+        availableFrom: resource.availableFrom || "08:00",
+        availableTo: resource.availableTo || "17:00",
         capacity: resource.capacity,
         status: resource.status,
         availableEquipment: resource.availableEquipment ? resource.availableEquipment.join(", ") : "",
@@ -83,14 +94,18 @@ export function AdminResourcesPage() {
       });
     } else {
       setEditingResource(null);
+      setImagePreviewUrl("");
       setFormData({
         name: "",
         resourceCode: "",
         type: "MEETING_ROOM",
         description: "",
+        imageUrl: "",
         building: "",
         floor: "",
         roomNumber: "",
+        availableFrom: "08:00",
+        availableTo: "17:00",
         capacity: 0,
         status: "ACTIVE",
         availableEquipment: "",
@@ -151,6 +166,34 @@ export function AdminResourcesPage() {
       default:
         return "secondary";
     }
+  };
+
+  const processImageFile = (file) => {
+    if (!file) return;
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a PNG, JPG, or WEBP image.");
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      setError("Resource image must be less than 1MB.");
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreviewUrl(previewUrl);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFormData((prev) => ({ ...prev, imageUrl: String(reader.result || "") }));
+      setError(null);
+    };
+    reader.onerror = () => setError("Failed to read selected image.");
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageInputChange = (e) => {
+    const file = e.target.files?.[0];
+    processImageFile(file);
+    e.target.value = "";
   };
 
   return (
@@ -244,6 +287,9 @@ export function AdminResourcesPage() {
                         <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-secondary)]">
                           <Users className="w-3.5 h-3.5" />
                           Cap. {r.capacity}
+                        </div>
+                        <div className="text-xs font-bold text-[var(--color-text-secondary)]">
+                          {r.availableFrom && r.availableTo ? `${r.availableFrom} - ${r.availableTo}` : "N/A"}
                         </div>
                       </div>
                     </div>
@@ -365,6 +411,22 @@ export function AdminResourcesPage() {
                   value={formData.roomNumber} 
                   onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value })} 
                 />
+                <Input
+                  label="Available From"
+                  type="time"
+                  required
+                  containerClassName="col-span-6"
+                  value={formData.availableFrom}
+                  onChange={(e) => setFormData({ ...formData, availableFrom: e.target.value })}
+                />
+                <Input
+                  label="Available To"
+                  type="time"
+                  required
+                  containerClassName="col-span-6"
+                  value={formData.availableTo}
+                  onChange={(e) => setFormData({ ...formData, availableTo: e.target.value })}
+                />
 
                 <Select 
                   label="Status" 
@@ -392,6 +454,60 @@ export function AdminResourcesPage() {
                   value={formData.availableEquipment} 
                   onChange={(e) => setFormData({ ...formData, availableEquipment: e.target.value })} 
                 />
+                <div className="col-span-12 space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">Resource Image</label>
+                  <div
+                    className={clsx(
+                      "rounded-xl border-2 border-dashed p-4 transition-all cursor-pointer",
+                      dragActive ? "border-primary bg-primary/5" : "border-[var(--color-border)] bg-[var(--color-bg-alt)]/40"
+                    )}
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragActive(true);
+                    }}
+                    onDragLeave={() => setDragActive(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragActive(false);
+                      processImageFile(e.dataTransfer.files?.[0]);
+                    }}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleImageInputChange}
+                    />
+                    <p className="text-xs font-bold text-[var(--color-text)]">
+                      upload image
+                    </p>
+                    <p className="text-[10px] font-medium text-[var(--color-muted)] mt-1">PNG, JPG, WEBP up to 1MB</p>
+                    {(imagePreviewUrl || formData.imageUrl) ? (
+                      <div className="mt-3 space-y-2">
+                        <img
+                          src={imagePreviewUrl || formData.imageUrl}
+                          alt="Resource preview"
+                          className="h-24 w-full rounded-lg object-cover border border-[var(--color-border)]"
+                        />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-9 text-[9px] font-black uppercase tracking-widest rounded-lg"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setImagePreviewUrl("");
+                            setFormData((prev) => ({ ...prev, imageUrl: "" }));
+                          }}
+                        >
+                          Remove Image
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
               <div className="flex gap-2 pt-3 border-t border-[var(--color-divider)]">
                 <Button type="submit" className="flex-1 shadow-premium h-10 text-[9px] font-black uppercase tracking-widest rounded-xl text-white">

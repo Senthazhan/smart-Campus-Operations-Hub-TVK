@@ -21,7 +21,8 @@ import {
   Home,
   CheckCheck,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  BookOpen
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
@@ -52,12 +53,10 @@ const adminItems = [
   { to: "/admin/resources", label: "Resource Management", icon: Package },
   { to: "/admin/bookings", label: "Booking Approvals", icon: CalendarCheck },
   { to: "/admin/tickets", label: "Ticket Governance", icon: Ticket },
-  { to: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 const technicianItems = [
   { to: "/technician/dashboard", label: "Maintenance Queue", icon: ClipboardList },
-  { to: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 const navItems = [
@@ -65,7 +64,6 @@ const navItems = [
   { to: "/resources", label: "Resource Catalogue", icon: Package },
   { to: "/my-bookings", label: "My Bookings", icon: ClipboardList },
   { to: "/tickets", label: "Support Tickets", icon: Ticket },
-  { to: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 const NavLinkItem = ({ to, label, icon: Icon, onClick, collapsed }) => {
@@ -89,10 +87,14 @@ const NavLinkItem = ({ to, label, icon: Icon, onClick, collapsed }) => {
         "w-5 h-5 transition-transform duration-300 group-hover:scale-110 shrink-0",
         isActive ? "text-white" : "text-[var(--color-muted)] group-hover:text-primary"
       )} />
-      {!collapsed && <span className="text-sm tracking-tight truncate">{label}</span>}
+      {!collapsed && (
+        <span className="text-sm tracking-tight truncate">
+          {label}
+        </span>
+      )}
       
       {isActive && !collapsed && (
-        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0" />
       )}
       
       {isActive && collapsed && (
@@ -101,6 +103,47 @@ const NavLinkItem = ({ to, label, icon: Icon, onClick, collapsed }) => {
     </Link>
   );
 };
+
+/** e-Books: own row below Notifications; dashed border + softer fill vs solid nav pills. */
+function EBooksSidebarLink({ onClick, collapsed }) {
+  const location = useLocation();
+  const isActive =
+    location.pathname === "/e-books" ||
+    location.pathname.startsWith("/e-books/") ||
+    location.pathname.startsWith("/admin/e-books");
+  return (
+    <Link
+      to="/e-books"
+      onClick={onClick}
+      title={collapsed ? "e-Books" : ""}
+      className={clsx(
+        "flex items-center gap-3 rounded-xl transition-all duration-300 border-2 border-dashed relative w-full px-3 py-2.5",
+        isActive
+          ? "border-primary/70 bg-gradient-to-br from-primary/12 to-primary/5 text-primary font-black shadow-sm"
+          : "border-[var(--color-border)] bg-[var(--color-surface)]/60 text-[var(--color-muted)] hover:border-primary/35 hover:text-primary hover:bg-primary/[0.06] font-semibold",
+        collapsed && "justify-center px-2"
+      )}
+    >
+      <BookOpen
+        className={clsx(
+          "w-5 h-5 shrink-0",
+          isActive ? "text-primary" : "text-primary/60"
+        )}
+      />
+      {!collapsed && (
+        <span className="text-sm tracking-tight font-black uppercase truncate">
+          e-Books
+        </span>
+      )}
+      {isActive && !collapsed && (
+        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+      )}
+      {isActive && collapsed && (
+        <span className="absolute right-1 top-1/2 -translate-y-1/2 w-1 h-4 rounded-l-full bg-primary" />
+      )}
+    </Link>
+  );
+}
 
 export function AppShell() {
   const { user, logout } = useAuth();
@@ -237,6 +280,13 @@ export function AppShell() {
               {currentNavItems.map((item) => (
                 <NavLinkItem key={item.to} {...item} collapsed={collapsed} />
               ))}
+              <NavLinkItem
+                to="/notifications"
+                label="Notifications"
+                icon={Bell}
+                collapsed={collapsed}
+              />
+              <EBooksSidebarLink collapsed={collapsed} />
             </div>
           </div>
         </nav>
@@ -474,6 +524,13 @@ export function AppShell() {
                       onClick={closeMobile}
                     />
                   ))}
+                  <NavLinkItem
+                    to="/notifications"
+                    label="Notifications"
+                    icon={Bell}
+                    onClick={closeMobile}
+                  />
+                  <EBooksSidebarLink onClick={closeMobile} collapsed={false} />
                 </div>
               </div>
             </div>

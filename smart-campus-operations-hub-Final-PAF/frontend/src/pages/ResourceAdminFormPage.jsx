@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { Button } from '../components/common/Button';
@@ -35,17 +35,23 @@ export function ResourceAdminFormPage({ mode }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [deleteModal, setDeleteModal] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
 
   const [form, setForm] = useState({
     name: '',
     resourceCode: '',
     type: 'LECTURE_HALL',
     description: '',
+    imageUrl: '',
     capacity: 0,
     building: '',
     floor: '',
     roomNumber: '',
     availabilityJson: '',
+    availableFrom: '08:00',
+    availableTo: '17:00',
     status: 'ACTIVE',
   });
 
@@ -62,11 +68,14 @@ export function ResourceAdminFormPage({ mode }) {
           resourceCode: r.resourceCode || '',
           type: r.type || 'LECTURE_HALL',
           description: r.description || '',
+          imageUrl: r.imageUrl || '',
           capacity: r.capacity ?? 0,
           building: r.building || '',
           floor: r.floor || '',
           roomNumber: r.roomNumber || '',
           availabilityJson: r.availabilityJson || '',
+          availableFrom: r.availableFrom || '08:00',
+          availableTo: r.availableTo || '17:00',
           status: r.status || 'ACTIVE',
         });
       })
@@ -84,6 +93,34 @@ export function ResourceAdminFormPage({ mode }) {
   }, [id, isEdit]);
 
   const title = useMemo(() => (isEdit ? 'Resource Governance' : 'New Asset Registration'), [isEdit]);
+
+  function processImageFile(file) {
+    if (!file) return;
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PNG, JPG, or WEBP image.');
+      return;
+    }
+    if (file.size > 1024 * 1024) {
+      setError('Resource image must be less than 1MB.');
+      return;
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreviewUrl(previewUrl);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((f) => ({ ...f, imageUrl: String(reader.result || '') }));
+      setError(null);
+    };
+    reader.onerror = () => setError('Failed to read selected image.');
+    reader.readAsDataURL(file);
+  }
+
+  function handleFileInputChange(e) {
+    const file = e.target.files?.[0];
+    processImageFile(file);
+    e.target.value = '';
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -215,6 +252,59 @@ export function ResourceAdminFormPage({ mode }) {
                            placeholder="Describe technical specifications, included equipment, or special usage instructions..."
                          />
                       </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted)]">Resource Image</label>
+                        <div
+                          className={clsx(
+                            'rounded-2xl border-2 border-dashed p-5 transition-all cursor-pointer',
+                            dragActive ? 'border-primary bg-primary/5' : 'border-[var(--color-border)] bg-[var(--color-surface)]/40'
+                          )}
+                          onClick={() => fileInputRef.current?.click()}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setDragActive(true);
+                          }}
+                          onDragLeave={() => setDragActive(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setDragActive(false);
+                            processImageFile(e.dataTransfer.files?.[0]);
+                          }}
+                        >
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            capture="environment"
+                            className="hidden"
+                            onChange={handleFileInputChange}
+                          />
+                          <p className="text-xs font-bold text-[var(--color-text)]">
+                            upload image
+                          </p>
+                          <p className="text-[10px] font-medium text-[var(--color-muted)] mt-1">
+                            PNG, JPG, WEBP up to 1MB
+                          </p>
+                          {(imagePreviewUrl || form.imageUrl) ? (
+                            <div className="mt-4 space-y-3">
+                              <img src={imagePreviewUrl || form.imageUrl} alt="Resource preview" className="h-32 w-full rounded-xl object-cover border border-[var(--color-border)]" />
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-10 text-[10px] font-bold uppercase tracking-widest"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setImagePreviewUrl('');
+                                  setForm((f) => ({ ...f, imageUrl: '' }));
+                                }}
+                              >
+                                Remove Image
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
                    </div>
                 </Card>
 
@@ -268,6 +358,25 @@ export function ResourceAdminFormPage({ mode }) {
                       </div>
                    </div>
 
+                   <div className="grid md:grid-cols-2 gap-6">
+                      <Input
+                        label="Available From"
+                        type="time"
+                        value={form.availableFrom}
+                        onChange={(e) => setForm((f) => ({ ...f, availableFrom: e.target.value }))}
+                        required
+                        className="h-12 font-bold"
+                      />
+                      <Input
+                        label="Available To"
+                        type="time"
+                        value={form.availableTo}
+                        onChange={(e) => setForm((f) => ({ ...f, availableTo: e.target.value }))}
+                        required
+                        className="h-12 font-bold"
+                      />
+                   </div>
+
                    <div className="space-y-3">
                       <textarea
                         className="w-full rounded-2xl border border-[var(--color-border)] bg-slate-900 px-5 py-4 font-mono text-sm text-emerald-400 shadow-lg outline-none focus:ring-4 focus:ring-emerald-500/10 transition-all leading-relaxed"
@@ -310,7 +419,7 @@ export function ResourceAdminFormPage({ mode }) {
                         onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
                         options={[
                           { value: 'ACTIVE', label: 'Status: Optimal / Ready' },
-                          { value: 'UNDER_MAINTENANCE', label: 'Status: Maintenance Required' },
+                          { value: 'MAINTENANCE', label: 'Status: Maintenance Required' },
                           { value: 'OUT_OF_SERVICE', label: 'Status: Decommissioned' },
                         ]}
                         className={clsx(

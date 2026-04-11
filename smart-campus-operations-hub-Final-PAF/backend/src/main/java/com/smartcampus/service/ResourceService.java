@@ -3,19 +3,49 @@ package com.smartcampus.service;
 import com.smartcampus.dto.request.ResourceCreateRequest;
 import com.smartcampus.dto.request.ResourceUpdateRequest;
 import com.smartcampus.dto.response.ResourceResponse;
+import com.smartcampus.dto.response.ResourceTimeFitPreviewResponse;
 import com.smartcampus.enums.ResourceStatus;
 import com.smartcampus.enums.ResourceType;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface ResourceService {
-  Page<ResourceResponse> search(String q, ResourceType type, ResourceStatus status, String building, Integer minCapacity, Pageable pageable);
+  Page<ResourceResponse> search(
+      String q,
+      ResourceType type,
+      ResourceStatus status,
+      String building,
+      Integer minCapacity,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      String excludeBookingId,
+      Pageable pageable
+  );
+
+  Page<ResourceTimeFitPreviewResponse> previewTimeFit(
+      String q,
+      ResourceType type,
+      ResourceStatus status,
+      String building,
+      Integer minCapacity,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      String excludeBookingId,
+      Pageable pageable
+  );
 
   ResourceResponse getById(String id);
 
   ResourceResponse create(ResourceCreateRequest req);
 
   ResourceResponse update(String id, ResourceUpdateRequest req);
+
+  ResourceResponse uploadImage(String id, MultipartFile file);
 
   void delete(String id);
 }

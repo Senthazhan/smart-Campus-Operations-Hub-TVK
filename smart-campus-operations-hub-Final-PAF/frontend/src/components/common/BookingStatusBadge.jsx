@@ -7,6 +7,7 @@ export function BookingStatusBadge({ value }) {
     APPROVED: 'bg-emerald-600/10 text-emerald-700 border-emerald-200',
     REJECTED: 'bg-red-600/10 text-red-700 border-red-200',
     CANCELLED: 'bg-slate-600/10 text-slate-700 border-slate-200',
+    EXPIRED: 'bg-rose-600/10 text-rose-700 border-rose-200',
   };
   return (
     <span

@@ -5,6 +5,7 @@ import com.smartcampus.enums.BookingStatus;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Collection;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -20,6 +21,20 @@ public interface BookingRepository extends MongoRepository<Booking, String> {
       LocalTime endTime,
       Collection<BookingStatus> statuses
   );
+
+  @Query(value = "{ '_id': { $ne: ?0 }, 'resource': ?1, 'bookingDate': ?2, 'status': { $in: ?5 }, 'startTime': { $lt: ?4 }, 'endTime': { $gt: ?3 } }", count = true)
+  long countConflictsExcludingBooking(
+      String bookingId,
+      String resourceId,
+      LocalDate bookingDate,
+      LocalTime startTime,
+      LocalTime endTime,
+      Collection<BookingStatus> statuses
+  );
+
+  List<Booking> findAllByBookingDateAndStatusIn(LocalDate bookingDate, Collection<BookingStatus> statuses);
+
+  List<Booking> findAllByStatus(BookingStatus status);
 
   Page<Booking> findAllByUserId(String userId, Pageable pageable);
 }

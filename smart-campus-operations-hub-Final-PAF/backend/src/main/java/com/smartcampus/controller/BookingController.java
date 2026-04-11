@@ -31,17 +31,25 @@ public class BookingController {
     return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(req.getRequestURI(), created));
   }
 
+  @PutMapping("/{id}")
+  public ResponseEntity<ApiResponse<BookingResponse>> update(@PathVariable String id, @Valid @RequestBody BookingCreateRequest body, HttpServletRequest req) {
+    return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI(), bookingService.update(id, body)));
+  }
+
   @GetMapping
   public ResponseEntity<ApiResponse<Page<BookingResponse>>> list(
       @RequestParam(required = false) String q,
       @RequestParam(required = false) BookingStatus status,
+      @RequestParam(required = false) BookingStatus excludeStatus,
       @RequestParam(required = false) String resourceId,
       @RequestParam(required = false) LocalDate from,
       @RequestParam(required = false) LocalDate to,
+      @RequestParam(required = false, defaultValue = "latest") String chronology,
       @PageableDefault(size = 10) Pageable pageable,
       HttpServletRequest req
   ) {
-    return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI(), bookingService.list(q, status, resourceId, from, to, pageable)));
+    return ResponseEntity.ok(
+        ApiResponse.ok(req.getRequestURI(), bookingService.list(q, status, resourceId, from, to, excludeStatus, chronology, pageable)));
   }
 
   @GetMapping("/{id}")

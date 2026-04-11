@@ -217,8 +217,18 @@ export function ResourceCataloguePage() {
                      <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
                      
                      <div className="relative h-44 bg-[var(--color-bg-alt)] flex items-center justify-center overflow-hidden border-b border-[var(--color-border)]">
-                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]" />
-                        <Icon className="w-16 h-16 text-[var(--color-muted)]/20 group-hover:text-primary transition-all group-hover:scale-110 duration-700 blur-[0.5px] group-hover:blur-0" />
+                        {r.imageUrl ? (
+                          <img
+                            src={r.imageUrl}
+                            alt={r.name}
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        ) : (
+                          <>
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03]" />
+                            <Icon className="w-16 h-16 text-[var(--color-muted)]/20 group-hover:text-primary transition-all group-hover:scale-110 duration-700 blur-[0.5px] group-hover:blur-0" />
+                          </>
+                        )}
                         
                         <div className="absolute top-4 right-4 flex flex-col gap-2 scale-90 group-hover:scale-100 transition-transform">
                            <Badge variant={STATUS_VARIANTS[r.status] || 'secondary'}>{r.status}</Badge>
@@ -261,6 +271,9 @@ export function ResourceCataloguePage() {
                               </div>
                               <span className="text-[11px] font-black text-[var(--color-text)] truncate">{r.building}</span>
                            </div>
+                        </div>
+                        <div className="mb-4 text-[10px] font-black text-[var(--color-muted)] uppercase tracking-widest">
+                          Availability: {r.availableFrom && r.availableTo ? `${r.availableFrom} - ${r.availableTo}` : "Not Set"}
                         </div>
 
                         <div className="mt-auto pt-5 border-t border-[var(--color-divider)] flex items-center justify-between">
@@ -309,6 +322,9 @@ export function ResourceCataloguePage() {
                     <td className="px-6 py-5">
                        <div className="text-[12px] font-black text-[var(--color-text)] tracking-tight">{r.building}</div>
                        <div className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-widest mt-0.5">Floor Level {r.floor}</div>
+                       <div className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-widest mt-0.5">
+                         {r.availableFrom && r.availableTo ? `${r.availableFrom} - ${r.availableTo}` : "Availability Not Set"}
+                       </div>
                     </td>
                     <td className="px-6 py-5">
                        <div className="flex items-center justify-end gap-3">

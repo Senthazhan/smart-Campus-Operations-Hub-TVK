@@ -5,6 +5,11 @@ export async function listResources(params) {
   return res.data?.data;
 }
 
+export async function previewResourceTimeFit(params) {
+  const res = await http.get('/resources/time-fit-preview', { params });
+  return res.data?.data;
+}
+
 export async function getResource(id) {
   const res = await http.get(`/resources/${id}`);
   return res.data?.data;
@@ -22,6 +27,15 @@ export async function updateResource(id, data) {
 
 export async function deleteResource(id) {
   await http.delete(`/resources/${id}`);
+}
+
+export async function uploadResourceImage(id, file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await http.post(`/resources/${id}/image`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data?.data;
 }
 
 

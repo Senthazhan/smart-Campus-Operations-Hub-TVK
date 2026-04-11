@@ -60,7 +60,7 @@ export function ResourceDetailsPage() {
 
   const STATUS_MAP = {
     ACTIVE: 'success',
-    UNDER_MAINTENANCE: 'warning',
+    MAINTENANCE: 'warning',
     OUT_OF_SERVICE: 'error',
   };
 
@@ -75,6 +75,24 @@ export function ResourceDetailsPage() {
   };
 
   const Icon = data ? (TYPE_ICONS[data.type] || Box) : Box;
+
+  const next7Days = React.useMemo(() => {
+    const base = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      const day = d.toLocaleDateString(undefined, { weekday: 'short' });
+
+      const status = data?.status;
+      let state = 'ONLINE';
+      if (status === 'OUT_OF_SERVICE') state = 'UNAVAILABLE';
+      else if (status === 'MAINTENANCE') state = i === 0 ? 'UNAVAILABLE' : 'ONLINE';
+      else if (status === 'ACTIVE') state = 'ONLINE';
+      else state = 'ONLINE';
+
+      return { day, state, isToday: i === 0 };
+    });
+  }, [data?.status]);
 
   return (
     <div className="space-y-8 animate-fade-in-up pb-20">
@@ -127,6 +145,15 @@ export function ResourceDetailsPage() {
           {/* Main Info Area */}
           <div className="lg:col-span-8 space-y-8">
             <Card className="overflow-hidden border-[var(--color-border)] p-0">
+               {data.imageUrl ? (
+                 <div className="h-56 border-b border-[var(--color-border)] bg-[var(--color-bg-alt)]">
+                   <img
+                     src={data.imageUrl}
+                     alt={data.name}
+                     className="w-full h-full object-cover"
+                   />
+                 </div>
+               ) : null}
                <div className="p-8">
                   <div className="flex items-start justify-between gap-6 pb-8 border-b border-[var(--color-border)]">
                      <div className="space-y-4">
@@ -134,10 +161,10 @@ export function ResourceDetailsPage() {
                            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                               <Info className="w-5 h-5" />
                            </div>
-                           <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--color-text)]">Executive Summary</h3>
+                           <h3 className="text-sm font-black uppercase tracking-[0.2em] text-[var(--color-text)]">Disclaimer</h3>
                         </div>
                         <p className="text-lg font-medium text-[var(--color-muted)] leading-relaxed italic">
-                           "{data.description || 'No descriptive metadata has been indexed for this infrastructure asset.'}"
+                           "{data.description || 'This Organization has full authority to reject your request anytime.'}"
                         </p>
                      </div>
                      <StatusIndicator status={STATUS_MAP[data.status] || 'info'} label={data.status} className="scale-110" />
@@ -182,12 +209,22 @@ export function ResourceDetailsPage() {
                      <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--color-muted)]">Node Availability</h4>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                     {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                        <div key={day} className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-[var(--color-border)] text-center shadow-soft">
-                           <div className="text-[10px] font-black uppercase text-[var(--color-muted)] mb-1">{day}</div>
-                           <div className="text-[11px] font-bold text-success uppercase tracking-tighter">Online</div>
-                        </div>
-                     ))}
+                     {next7Days.map(({ day, state, isToday }) => {
+                       const isOnline = state === 'ONLINE';
+                       return (
+                         <div
+                           key={`${day}-${isToday ? 'today' : ''}`}
+                           className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-[var(--color-border)] text-center shadow-soft"
+                         >
+                           <div className="text-[10px] font-black uppercase text-[var(--color-muted)] mb-1">
+                             {day}{isToday ? ' (Today)' : ''}
+                           </div>
+                           <div className={`text-[11px] font-bold uppercase tracking-tighter ${isOnline ? 'text-success' : 'text-error'}`}>
+                            {isOnline ? 'Online' : 'Un-Av'}
+                           </div>
+                         </div>
+                       );
+                     })}
                   </div>
                </div>
             </Card>

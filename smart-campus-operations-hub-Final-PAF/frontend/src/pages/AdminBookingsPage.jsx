@@ -6,6 +6,8 @@ import { Badge } from '../components/common/Badge';
 import { Input } from '../components/common/Input';
 import { Select } from '../components/common/Select';
 import { CardLoader } from '../components/common/PageLoader';
+import { Spinner } from '../components/common/Spinner';
+import { Toast } from '../components/common/Toast';
 import { 
   ShieldCheck, 
   Search, 
@@ -29,6 +31,7 @@ const STATUS_VARIANTS = {
   APPROVED: 'success',
   REJECTED: 'error',
   CANCELLED: 'neutral',
+  EXPIRED: 'error',
 };
 
 export function AdminBookingsPage() {
@@ -38,13 +41,14 @@ export function AdminBookingsPage() {
   const [error, setError] = useState(null);
 
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState('PENDING');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
   const [modal, setModal] = useState(null); // { id, action: 'approve'|'reject' }
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState({ open: false, title: '', message: '', variant: 'success' });
 
   const params = useMemo(() => {
     const p = { page, size: 7 };
@@ -88,6 +92,14 @@ export function AdminBookingsPage() {
     try {
       if (modal.action === 'approve') await approveBooking(modal.id, reason.trim());
       if (modal.action === 'reject') await rejectBooking(modal.id, reason.trim());
+      setToast({
+        open: true,
+        title: modal.action === 'approve' ? 'Booking Approved' : 'Booking Rejected',
+        message: modal.action === 'approve'
+          ? 'The booking request was approved successfully.'
+          : 'The booking request was rejected successfully.',
+        variant: 'success',
+      });
       setModal(null);
       await refresh();
     } catch (e) {
@@ -124,23 +136,47 @@ export function AdminBookingsPage() {
             <Input 
               label="Search Query" 
               value={q} 
-              onChange={(e) => setQ(e.target.value)} 
+              onChange={(e) => {
+                setQ(e.target.value);
+                setPage(0);
+              }} 
               placeholder="Resource / User..." 
             />
             <Select
               label="Flow Status"
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => {
+                setStatus(e.target.value);
+                setPage(0);
+              }}
               options={[
+                { value: 'PENDING', label: 'Pending First' },
                 { value: '', label: 'All Statuses' },
                 { value: 'PENDING', label: 'Pending' },
                 { value: 'APPROVED', label: 'Approved' },
                 { value: 'REJECTED', label: 'Rejected' },
                 { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'EXPIRED', label: 'Expired' },
               ]}
             />
-            <Input label="From Date" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-            <Input label="To Date" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <Input
+              label="From Date"
+              type="date"
+              value={from}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setPage(0);
+              }}
+            />
+            <Input
+              label="To Date"
+              type="date"
+              value={to}
+              onChange={(e) => {
+                setTo(e.target.value);
+                setPage(0);
+              }}
+            />
          </div>
       </Card>
 
@@ -272,7 +308,19 @@ export function AdminBookingsPage() {
              </div>
              <h3 className="text-xl font-extrabold text-[var(--color-text)]">No matching requests</h3>
              <p className="text-[var(--color-text-secondary)] max-w-xs mx-auto mt-2 text-sm font-medium">Try clearing your filters or adjusting search parameters.</p>
-             <Button variant="secondary" className="mt-8 px-8" onClick={() => { setQ(''); setStatus(''); setFrom(''); setTo(''); }}>Reset All Filters</Button>
+             <Button
+               variant="secondary"
+               className="mt-8 px-8"
+               onClick={() => {
+                 setQ('');
+                 setStatus('PENDING');
+                 setFrom('');
+                 setTo('');
+                 setPage(0);
+               }}
+             >
+               Reset All Filters
+             </Button>
           </div>
         )}
       </Card>
@@ -319,6 +367,14 @@ export function AdminBookingsPage() {
           </Card>
         </div>
       )}
+
+      <Toast
+        open={toast.open}
+        title={toast.title}
+        message={toast.message}
+        variant={toast.variant}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      />
     </div>
   );
 }

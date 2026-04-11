@@ -17,6 +17,9 @@ import { TicketCreatePage } from "../pages/TicketCreatePage";
 import { TicketListPage } from "../pages/TicketListPage";
 import { TicketDetailsPage } from "../pages/TicketDetailsPage";
 import { NotificationsPage } from "../pages/NotificationsPage";
+import { EBooksPage } from "../pages/EBooksPage";
+import { EBookSubmitPage } from "../pages/EBookSubmitPage";
+import { AdminEBooksPage } from "../pages/AdminEBooksPage";
 import { AdminUsersPage } from "../pages/AdminUsersPage";
 import { AdminResourcesPage } from "../pages/AdminResourcesPage";
 import { ProfilePage } from "../pages/ProfilePage";
@@ -113,6 +116,14 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/bookings/:id/edit"
+          element={
+            <RequireAuth>
+              <BookingRequestPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/my-bookings"
           element={
             <RequireAuth>
@@ -160,6 +171,30 @@ export function AppRoutes() {
           element={
             <RequireAuth>
               <NotificationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/e-books"
+          element={
+            <RequireAuth>
+              <EBooksPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/e-books/submit"
+          element={
+            <RequireAuth>
+              <EBookSubmitPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/e-books"
+          element={
+            <RequireAuth allowedRoles={["ADMIN"]}>
+              <AdminEBooksPage />
             </RequireAuth>
           }
         />
