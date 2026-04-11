@@ -174,6 +174,18 @@ const AdminTicketsPage = () => {
     setPage(0);
   };
 
+  const handleClose = async (ticketId) => {
+    try {
+      setAssigningLoading(true);
+      await updateTicketStatus(ticketId, { status: 'CLOSED' });
+      fetchTickets();
+    } catch (err) {
+      console.error('Failed to close ticket:', err);
+    } finally {
+      setAssigningLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-10 animate-fade-in-up pb-10">
       {/* ── Page Header ── */}
@@ -311,11 +323,23 @@ const AdminTicketsPage = () => {
             </td>
             <td className="px-6 py-5">
                <div className="flex items-center justify-end gap-2">
-                  {ticket.status === 'OPEN' && (
+                  {ticket.status === 'RESOLVED' && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleClose(ticket.id)}
+                      disabled={assigningLoading}
+                      className="text-[10px] font-black h-9 px-4 uppercase tracking-widest shadow-premium"
+                    >
+                      Close
+                    </Button>
+                  )}
+                  {(ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS') && (
                     <Button
                       variant="soft"
                       size="sm"
                       onClick={() => setRejectModal({ open: true, ticketId: ticket.id })}
+                      disabled={assigningLoading}
                       className="text-[10px] font-black h-9 px-4 uppercase tracking-widest border-error/20 hover:bg-error/5 text-error"
                     >
                       Decline

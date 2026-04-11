@@ -111,7 +111,7 @@ public class TicketServiceImpl implements TicketService {
         "TICKET",
         ticket.getId());
 
-    return toTicketResponse(ticket);
+    return toTicketResponse(ticket, true);
   }
 
   @Override
@@ -188,14 +188,16 @@ public class TicketServiceImpl implements TicketService {
       if (!ticketCriteria.isEmpty())
         countOps.add(Aggregation.match(new Criteria().andOperator(ticketCriteria.toArray(new Criteria[0]))));
       
-      countOps.add(LookupOperation.newLookup().from("users").localField("createdBy").foreignField("_id").as("reporter_details"));
-      countOps.add(LookupOperation.newLookup().from("resources").localField("resource").foreignField("_id").as("resource_details"));
-      
       if (q != null && !q.isBlank()) {
+        // Only lookup if searching on reporter or resource fields
+        countOps.add(LookupOperation.newLookup().from("users").localField("createdBy").foreignField("_id").as("reporter_details"));
+        countOps.add(LookupOperation.newLookup().from("resources").localField("resource").foreignField("_id").as("resource_details"));
+        
         countOps.add(Aggregation.match(new Criteria().orOperator(
             Criteria.where("title").regex(q, "i"),
             Criteria.where("ticketNumber").regex(q, "i"),
-            Criteria.where("description").regex(q, "i"))));
+            Criteria.where("reporter_details.email").regex(q, "i"),
+            Criteria.where("resource_details.name").regex(q, "i"))));
       }
       countOps.add(Aggregation.count().as("totalCount"));
 
@@ -211,7 +213,7 @@ public class TicketServiceImpl implements TicketService {
       
       return PageableExecutionUtils.getPage(results, pageable, () -> finalTotal).map(t -> {
         try {
-          return toTicketResponse(t);
+          return toTicketResponse(t, false); // Optimized: no attachments/comments for list
         } catch (Exception e) {
           log.error("Failed to map ticket ID={} to response. Skipping record.", t.getId(), e);
           return null;
@@ -227,7 +229,7 @@ public class TicketServiceImpl implements TicketService {
   public TicketResponse get(String id) {
     var ticket = ticketRepository.findById(id).orElseThrow(() -> new NotFoundException("Ticket not found"));
     enforceTicketAccess(ticket);
-    return toTicketResponse(ticket);
+    return toTicketResponse(ticket, true);
   }
 
   @Override
@@ -249,37 +251,39 @@ public class TicketServiceImpl implements TicketService {
     }
 
     if (next == current) {
-      return toTicketResponse(ticket);
+      return toTicketResponse(ticket, true);
     }
 
-    if (role == RoleName.TECHNICIAN) {
-      if (current == TicketStatus.OPEN && next == TicketStatus.IN_PROGRESS) {
-        // Valid
-      } else if (current == TicketStatus.IN_PROGRESS && next == TicketStatus.RESOLVED) {
-        if (req.resolutionNotes() == null || req.resolutionNotes().isBlank()) {
-          throw new ConflictException("Resolution notes are required when resolving a ticket");
-        }
-        ticket.setResolutionNotes(req.resolutionNotes());
-      } else {
-        throw new ConflictException("Technicians can only transition OPEN -> IN_PROGRESS or IN_PROGRESS -> RESOLVED");
+    // Workflow: OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED
+    if (next == TicketStatus.IN_PROGRESS) {
+      if (current != TicketStatus.OPEN) {
+        throw new ConflictException("Can only start work on OPEN tickets");
       }
-    }
-
-    if (next == TicketStatus.REJECTED) {
+    } else if (next == TicketStatus.RESOLVED) {
+      if (current != TicketStatus.IN_PROGRESS) {
+        throw new ConflictException("Tickets must be IN_PROGRESS before they can be RESOLVED");
+      }
+      if (req.resolutionNotes() == null || req.resolutionNotes().isBlank()) {
+        throw new ConflictException("Resolution notes are required when resolving a ticket");
+      }
+      ticket.setResolutionNotes(req.resolutionNotes());
+    } else if (next == TicketStatus.CLOSED) {
+      if (!isAdmin) throw new ForbiddenException("Only admins can close tickets");
+      if (current != TicketStatus.RESOLVED) {
+        throw new ConflictException("Tickets must be RESOLVED before they can be CLOSED");
+      }
+      ticket.setClosedAt(java.time.Instant.now());
+    } else if (next == TicketStatus.REJECTED) {
       if (!isAdmin) throw new ForbiddenException("Only admins can reject tickets");
+      if (current != TicketStatus.OPEN && current != TicketStatus.IN_PROGRESS) {
+        throw new ConflictException("Tickets can only be REJECTED while OPEN or IN_PROGRESS");
+      }
       if (req.rejectionReason() == null || req.rejectionReason().isBlank()) {
         throw new ConflictException("Rejection reason is required when rejecting a ticket");
       }
       ticket.setRejectionReason(req.rejectionReason());
-    }
-
-    if (next == TicketStatus.CLOSED) {
-      if (!isAdmin) throw new ForbiddenException("Only admins can close tickets");
-      ticket.setClosedAt(java.time.Instant.now());
-    }
-
-    if (isAdmin && (next == TicketStatus.RESOLVED || next == TicketStatus.CLOSED) && req.resolutionNotes() != null) {
-      ticket.setResolutionNotes(req.resolutionNotes());
+    } else {
+      throw new ConflictException("Invalid status transition: " + current + " -> " + next);
     }
 
     ticket.setStatus(next);
@@ -294,7 +298,7 @@ public class TicketServiceImpl implements TicketService {
         "TICKET",
         ticket.getId());
 
-    return toTicketResponse(ticket);
+    return toTicketResponse(ticket, true);
   }
 
   @Override
@@ -325,7 +329,7 @@ public class TicketServiceImpl implements TicketService {
         "TICKET",
         ticket.getId());
 
-    return toTicketResponse(ticket);
+    return toTicketResponse(ticket, true);
   }
 
   @Override
@@ -413,23 +417,28 @@ public class TicketServiceImpl implements TicketService {
     commentRepository.delete(c);
   }
 
-  private TicketResponse toTicketResponse(Ticket ticket) {
+  private TicketResponse toTicketResponse(Ticket ticket, boolean includeDetails) {
     try {
-      var attachments = attachmentRepository.findAllByTicketId(ticket.getId()).stream()
-          .map(a -> {
-            try { return ticketMapper.toAttachmentResponse(a); }
-            catch (Exception e) { log.error("Failing to map attachment: {}", a.getId()); return null; }
-          })
-          .filter(java.util.Objects::nonNull)
-          .toList();
+      List<TicketAttachmentResponse> attachments = List.of();
+      List<TicketCommentResponse> comments = List.of();
 
-      var comments = commentRepository.findAllByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
-          .map(c -> {
-            try { return ticketMapper.toCommentResponse(c); }
-            catch (Exception e) { log.error("Failing to map comment: {}", c.getId()); return null; }
-          })
-          .filter(java.util.Objects::nonNull)
-          .toList();
+      if (includeDetails) {
+        attachments = attachmentRepository.findAllByTicketId(ticket.getId()).stream()
+            .map(a -> {
+              try { return ticketMapper.toAttachmentResponse(a); }
+              catch (Exception e) { log.error("Failing to map attachment: {}", a.getId()); return null; }
+            })
+            .filter(java.util.Objects::nonNull)
+            .toList();
+
+        comments = commentRepository.findAllByTicketIdOrderByCreatedAtAsc(ticket.getId()).stream()
+            .map(c -> {
+              try { return ticketMapper.toCommentResponse(c); }
+              catch (Exception e) { log.error("Failing to map comment: {}", c.getId()); return null; }
+            })
+            .filter(java.util.Objects::nonNull)
+            .toList();
+      }
 
       java.time.Instant targetResolutionTime = null;
       String slaStatus = "ON_TRACK";

@@ -97,7 +97,7 @@ public class TicketController {
           .body(ApiResponse.ok(req.getRequestURI(), created));
 
     } catch (IllegalArgumentException e) {
-      // Handle invalid ENUM values
+      // Handle invalid ENUM values 400
       return ResponseEntity.badRequest()
           .body(ApiResponse.error("INVALID_ENUM",
               "Invalid category or priority: " + e.getMessage()));
@@ -105,6 +105,7 @@ public class TicketController {
     } catch (Exception e) {
       // Generic error handling
       e.printStackTrace();
+      //500
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body(ApiResponse.error("SERVER_ERROR",
               "Failed to create ticket: " + e.getMessage()));
@@ -202,6 +203,7 @@ public class TicketController {
       @RequestParam("files") MultipartFile[] files,
       HttpServletRequest req) {
 
+    // 201
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.ok(req.getRequestURI(),
             ticketService.uploadAttachments(id, files)));
