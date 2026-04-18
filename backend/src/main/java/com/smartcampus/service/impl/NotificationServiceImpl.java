@@ -1,6 +1,7 @@
 package com.smartcampus.service.impl;
 
 import com.smartcampus.dto.response.NotificationResponse;
+import com.smartcampus.dto.response.NotificationSummaryResponse;
 import com.smartcampus.exception.NotFoundException;
 import com.smartcampus.mapper.NotificationMapper;
 import com.smartcampus.repository.NotificationRepository;
@@ -52,9 +53,29 @@ public class NotificationServiceImpl implements NotificationService {
 
   @Override
   @Transactional(readOnly = true)
-  public Page<NotificationResponse> list(Pageable pageable) {
-    return notificationRepository.findAllByUserIdOrderByCreatedAtDesc(CurrentUser.id(), pageable)
-        .map(notificationMapper::toResponse);
+  public Page<NotificationResponse> list(Pageable pageable, Boolean read) {
+    String userId = CurrentUser.id();
+
+    Page<com.smartcampus.entity.Notification> page;
+    if (read == null) {
+      page = notificationRepository.findAllByUserIdOrderByCreatedAtDesc(userId, pageable);
+    } else {
+      page = notificationRepository.findAllByUserIdAndReadOrderByCreatedAtDesc(userId, read, pageable);
+    }
+
+    return page.map(notificationMapper::toResponse);
+  }
+
+  @Override
+  @Transactional(readOnly = true)
+  public NotificationSummaryResponse summary() {
+    String userId = CurrentUser.id();
+
+    long total = notificationRepository.countByUserId(userId);
+    long unread = notificationRepository.countByUserIdAndRead(userId, false);
+    long read = notificationRepository.countByUserIdAndRead(userId, true);
+
+    return new NotificationSummaryResponse(total, unread, read);
   }
 
   @Override
@@ -83,4 +104,3 @@ public class NotificationServiceImpl implements NotificationService {
     notificationRepository.saveAll(page.getContent());
   }
 }
-
