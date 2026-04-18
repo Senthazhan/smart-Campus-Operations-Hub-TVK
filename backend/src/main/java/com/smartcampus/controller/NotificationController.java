@@ -1,6 +1,7 @@
 package com.smartcampus.controller;
 
 import com.smartcampus.dto.response.NotificationResponse;
+import com.smartcampus.dto.response.NotificationSummaryResponse;
 import com.smartcampus.service.NotificationService;
 import com.smartcampus.util.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,7 +12,6 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
@@ -21,10 +21,20 @@ public class NotificationController {
 
   @GetMapping
   public ResponseEntity<ApiResponse<Page<NotificationResponse>>> list(
+      @RequestParam(required = false) Boolean read,
       @PageableDefault(size = 10) Pageable pageable,
       HttpServletRequest req
   ) {
-    return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI(), notificationService.list(pageable)));
+    return ResponseEntity.ok(
+        ApiResponse.ok(req.getRequestURI(), notificationService.list(pageable, read))
+    );
+  }
+
+  @GetMapping("/summary")
+  public ResponseEntity<ApiResponse<NotificationSummaryResponse>> summary(HttpServletRequest req) {
+    return ResponseEntity.ok(
+        ApiResponse.ok(req.getRequestURI(), notificationService.summary())
+    );
   }
 
   @PatchMapping("/{id}/read")
@@ -39,4 +49,3 @@ public class NotificationController {
     return ResponseEntity.ok(ApiResponse.ok(req.getRequestURI()));
   }
 }
-
